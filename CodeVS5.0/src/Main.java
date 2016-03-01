@@ -54,6 +54,16 @@ public class Main {
 	final static int msi = 1<<shi;
 	final static int msEmpty = (1<<15)-1;
 	final static int inf = 100000;
+	
+	final static int SK_FAST = 0;
+	final static int SK_STONE_ME = 1;
+	final static int SK_STONE_EN = 2;
+	final static int SK_THUND_ME = 3;
+	final static int SK_THUND_EN = 4;
+	final static int SK_COPY_ME = 5;
+	final static int SK_COPY_EN = 6;
+	final static int SK_ATTACK = 7;
+	
 	int[][] itemDist = new int[H][W];
 	int[] item = new int[20];
 	int items;
@@ -162,9 +172,9 @@ public class Main {
 				int use = sc.nextInt();
 			}
 		}
-		if(turn==3){
-			System.err.println("turn");
-		}
+//		if(turn==3){
+//			System.err.println("turn");
+//		}
 		order();
 		String res = "";
 		for(int i=0; i<2; i++) res += walkEachSimple(i)+"\n";
@@ -175,19 +185,21 @@ public class Main {
 	}
 	
 	
+	
 	String walkEachSimple(int id){
 		int bestDog = 0;
 		int bestItem = inf; // item優先
-		int bm1 = 4, bm2 = 4;
+		int bm1 = 4, bm2 = 4, bm3 = -1;
 		boolean isItem = false;
 		final int y = pos[id]/W;
 		final int x = pos[id]%W;
 //		System.err.println(id+":pos:"+y+","+x);
-		dump(itemDist);
+//		dump(itemDist);
 //		System.out.println("Dog:");
 //		dump(map, msd);
 //		System.out.println("Stone:");
 //		dump(map, mss);
+		boolean useFast = pow>cost[SK_ATTACK];
 		int dogCount = 0;
 		int stoneCount = 0;
 		for(int i=0; i<4; i++){
@@ -200,7 +212,9 @@ public class Main {
 			for(int j=0; j<4; j++){
 				if(!okMove(ny, nx, j) || dogDist[ny+dy[j]][nx+dx[j]] <= 1
 						|| x==nx+dx[j]&&y==ny+dy[j]) continue;
-				int point = itemDist[ny+dy[j]][nx+dx[j]];
+				final int nnx = nx+dx[j];
+				final int nny = ny+dy[j];
+				int point = itemDist[nny][nnx];
 				if(isItem){
 					point = point==0?-2:-1;
 					isItem = false;
@@ -210,7 +224,9 @@ public class Main {
 					// bestDog = dogDist[ny][nx] // 今は犬(の距離)は無視
 					bm1 = i;
 					bm2 = j;
+					bm3 = -1;
 				}
+				
 			}
 		}
 		if(bm1==4 || dogCount+stoneCount==4 && dogCount>1){
