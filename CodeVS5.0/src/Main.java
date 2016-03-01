@@ -16,7 +16,7 @@ public class Main {
 
 	void solve() throws IOException {
 		try (ContestScanner sc = new ContestScanner()) {
-			System.out.println("SampleAI.java");
+			System.out.println("the_simple");
 			System.out.flush();
 			while (true) {
 				System.out.print(think(sc));
@@ -33,8 +33,8 @@ public class Main {
 	final static int H = 17;
 	final static int W = 14;
 	int[] map = new int[H*W];
-	final static int[] dx = {-1, 0, 0, 1, 0};
-	final static int[] dy = {0, -1, 1, 0, 0};
+	final static int[] dy = {-1, 0, 0, 1, 0};
+	final static int[] dx = {0, -1, 1, 0, 0};
 	final static String[] ds = {"U", "L", "R", "D", "N"};
 	int pow;
 	final static int skills = 8; 
@@ -86,6 +86,7 @@ public class Main {
 		long millitime = sc.nextLong();
 		setSkill = null;
 		sc.nextInt();
+		Arrays.fill(map, 0);
 		for (int i = 0; i < skills; ++i) {
 			cost[i] = sc.nextInt();
 		}
@@ -108,6 +109,7 @@ public class Main {
 			int cols[] = new int[n];
 			for (int i = 0; i < n; ++i) {
 				int id = sc.nextInt(), row = sc.nextInt(), col = sc.nextInt();
+				pos[id] = row*W+col;
 				if(id==0) setNinja1(row, col, map);
 				else setNinja2(row, col, map);
 			}
@@ -158,11 +160,12 @@ public class Main {
 				int use = sc.nextInt();
 			}
 		}
+		order();
 		String res = "";
 		for(int i=0; i<2; i++) res += walkEachSimple(i)+"\n";
 		if(setSkill != null) res = "3\n" + setSkill + "\n" + res;
 		else res = "2\n" + res;
-		return res.toString();
+		return res;
 	}
 	
 	
@@ -173,13 +176,20 @@ public class Main {
 		boolean isItem = false;
 		final int y = pos[id]/W;
 		final int x = pos[id]%W;
+//		System.err.println(id+":pos:"+y+","+x);
+//		dump(itemDist);
+		int dogCount = 0;
+		int stoneCount = 0;
 		for(int i=0; i<4; i++){
 			if(!okMove(y, x, i) || dogDist[y+dy[i]][x+dx[i]] == 0) continue;
 			final int ny = y+dy[i];
 			final int nx = x+dx[i];
-			if(itemDist[y][x] == 0) isItem = true;
-			for(int j=0; j<4; i++){
-				if(!okMove(ny, nx, j) || dogDist[ny+dy[j]][nx+dx[i]] <= 1) continue;
+			if(isDog(ny, nx, map)) dogCount++;
+			else if(isStone(ny, nx, map)) stoneCount++;
+			if(isItem(ny, nx, map)) isItem = true;
+			for(int j=0; j<4; j++){
+				if(!okMove(ny, nx, j) || dogDist[ny+dy[j]][nx+dx[j]] <= 1
+						|| x==nx+dx[j]&&y==ny+dy[j]) continue;
 				int point = itemDist[ny+dy[j]][nx+dx[j]];
 				if(isItem){
 					point = point==0?-2:-1;
@@ -193,11 +203,20 @@ public class Main {
 				}
 			}
 		}
-		if(bm1==4){
+		if(bm1==4 || dogCount+stoneCount==4 && dogCount>1){
 			// (術を使わなければ)詰み
 			setSkill = "7 "+id;
 		}
 		return ds[bm1]+ds[bm2];
+	}
+	
+	void dump(int[][] dist){
+		for(int i=0; i<dist.length; i++){
+			for(int j=0; j<dist[i].length; j++){
+				System.out.print(dist[i][j]+"\t");
+			}
+			System.out.println();
+		}
 	}
 	
 	boolean okMove(int y, int x, int d){
@@ -222,6 +241,7 @@ public class Main {
 		for(int i=0; i<n; i++){
 			final int y = list[i]/W;
 			final int x = list[i]%W;
+			if(isStone(y, x, map)) continue;
 			qy[i] = y;
 			qx[i] = x;
 			dist[y][x] = 0;
