@@ -97,8 +97,8 @@ public class Main {
 			for(int i=0; i<H; i++){
 				char[] s = sc.nextToken().toCharArray();
 				for(int j=0; j<W; j++){
-					if(s[i]=='O') setStone(i, j, map);
-					else if(s[i]=='W') setWall(i, j, map);
+					if(s[j]=='O') setStone(i, j, map);
+					else if(s[j]=='W') setWall(i, j, map);
 				}
 			}
 
