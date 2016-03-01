@@ -53,6 +53,15 @@ public class Main {
 	final static int msi = 1<<shi;
 	final static int msEmpty = (1<<15)-1;
 	
+	int[][] itemDist = new int[H][W];
+	int[] item = new int[20];
+	int items;
+	int[][] dogDist = new int[H][W];
+	int[] dog = new int[H*W];
+	int dogs;
+	
+	int[] pos = new int[2];
+	
 	void setStone(int y, int x, int[] s){s[y*W+x] |= mss;}
 	void setWall(int y, int x, int[] s){s[y*W+x] |= msw;}
 	void setNinja1(int y, int x, int[] s){s[y*W+x] |= msn1;}
@@ -67,10 +76,15 @@ public class Main {
 	boolean isNinja(int y, int x, int[] s){return (s[y*W+x]&(msn1|msn2))>0;}
 	boolean isItem(int y, int x, int[] s){return (s[y*W+x]&msi)>0;}
 	boolean isDog(int y, int x, int[] s){return (s[y*W+x]&msd)>0;}
-
+	
+	void addItem(int y, int x, int i){item[i] = y*W+x;}
+	void addDog(int y, int x, int i){dog[i] = y*W+x;}
+	
+	String setSkill;
 	String think(ContestScanner sc) throws IOException {
-		StringBuilder res = new StringBuilder();
+//		StringBuilder res = new StringBuilder();
 		long millitime = sc.nextLong();
+		setSkill = null;
 		sc.nextInt();
 		for (int i = 0; i < skills; ++i) {
 			cost[i] = sc.nextInt();
@@ -99,15 +113,19 @@ public class Main {
 			}
 			// zombie
 			n = sc.nextInt();
+			dogs = n;
 			for (int i = 0; i < n; ++i) {
 				int id = sc.nextInt(), row = sc.nextInt(), col = sc.nextInt();
 				setDog(row, col, id, map);
+				addDog(row, col, i);
 			}
 			// item
 			n = sc.nextInt();
+			items = n;
 			for (int i = 0; i < n; ++i) {
 				int row = sc.nextInt(), col = sc.nextInt();
 				setItem(row, col, map);
+				addItem(row, col, i);
 			}
 			int useSkill[] = new int[skills];
 			for (int i = 0; i < skills; ++i) {
@@ -140,7 +158,46 @@ public class Main {
 				int use = sc.nextInt();
 			}
 		}
+		String res = "";
+		for(int i=0; i<2; i++) res += walkEachSimple(i)+"\n";
+		if(setSkill != null) res = "3\n" + setSkill + "\n" + res;
+		else res = "2\n" + res;
 		return res.toString();
+	}
+	
+	
+	String walkEachSimple(int id){
+		int bestDog = 0;
+		int bestItem = Integer.MAX_VALUE; // item優先
+		int bm1 = 4, bm2 = 4;
+		boolean isItem = false;
+		final int y = pos[id]/W;
+		final int x = pos[id]%W;
+		for(int i=0; i<4; i++){
+			if(!okMove(y, x, i) || dogDist[y+dy[i]][x+dx[i]] == 0) continue;
+			final int ny = y+dy[i];
+			final int nx = x+dx[i];
+			if(itemDist[y][x] == 0) isItem = true;
+			for(int j=0; j<4; i++){
+				if(!okMove(ny, nx, j) || dogDist[ny+dy[j]][nx+dx[i]] <= 1) continue;
+				int point = itemDist[ny+dy[j]][nx+dx[j]];
+				if(isItem){
+					point = point==0?-2:-1;
+					isItem = false;
+				}
+				if(bestItem>point){
+					bestItem = point;
+					// bestDog = dogDist[ny][nx] // 今は犬(の距離)は無視
+					bm1 = i;
+					bm2 = j;
+				}
+			}
+		}
+		if(bm1==4){
+			// (術を使わなければ)詰み
+			setSkill = "7 "+id;
+		}
+		return ds[bm1]+ds[bm2];
 	}
 	
 	boolean okMove(int y, int x, int d){
@@ -151,28 +208,41 @@ public class Main {
 		return isStoneMove(ny+dy[d], nx+dx[d], map);
 	}
 	
+//	int dist[][] = new int[H][W];
+	void order() {
+		bfs(itemDist, item, items);
+		bfs(dogDist, dog, dogs);
+	}
 
-//	String order(final int row, final int col) {
-//		int dist[][] = new int[map_row][map_col];
-//		for (int i = 0; i < dist.length; ++i)
-//			Arrays.fill(dist[i], Integer.MAX_VALUE);
-//		dist[row][col] = 0;
-//		int qr[] = new int[map_row * map_col], qc[] = new int[map_row * map_col], qi = 0, qe = 1;
-//		qr[0] = row;
-//		qc[0] = col;
-//		while (qi < qe) {
-//			int r = qr[qi], c = qc[qi];
-//			++qi;
-//			for (int i = 0; i < 4; ++i) {
-//				int nr = r + dx[i], nc = c + dy[i];
-//				if (map[nr][nc] && dist[nr][nc] == Integer.MAX_VALUE) {
-//					dist[nr][nc] = dist[r][c] + 1;
-//					qr[qe] = nr;
-//					qc[qe] = nc;
-//					++qe;
-//				}
-//			}
-//		}
+	int qy[] = new int[H*W], qx[] = new int[H*W];
+	void bfs(int[][] dist, int[] list, int n){
+		for (int i = 0; i < H; ++i)
+			Arrays.fill(dist[i], Integer.MAX_VALUE);
+		int qi = 0, qe = 0;
+		for(int i=0; i<n; i++){
+			final int y = list[i]/W;
+			final int x = list[i]%W;
+			qy[i] = y;
+			qx[i] = x;
+			dist[y][x] = 0;
+			qe++;
+		}
+		while (qi < qe) {
+			int y = qy[qi], x = qx[qi];
+			++qi;
+			for (int i = 0; i < 4; ++i) {
+				int ny = y+dy[i];
+				int nx = x+dx[i];
+				if (isFloor(ny, nx, map) && dist[ny][nx] == Integer.MAX_VALUE) {
+					dist[ny][nx] = dist[y][x] + 1;
+					qy[qe] = ny;
+					qx[qe] = nx;
+					++qe;
+				}else if(isStone(ny, nx, map) && dist[ny][nx]==Integer.MAX_VALUE)
+					dist[ny][nx] = dist[y][x] + 1;
+			}
+		}
+	}
 //
 //		int tr = -1, tc = -1, tdist = Integer.MAX_VALUE;
 //		for (int r = 0; r < map_row; ++r) {
