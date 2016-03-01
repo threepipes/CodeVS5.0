@@ -30,6 +30,7 @@ public class Main {
 //	private static final String ds[] = { "L", "U", "R", "D" };
 //	int point, map_row, map_col;
 //	boolean[][] map, itemMap;
+	int turn = 0;
 	final static int H = 17;
 	final static int W = 14;
 	int[] map = new int[H*W];
@@ -118,7 +119,8 @@ public class Main {
 			dogs = n;
 			for (int i = 0; i < n; ++i) {
 				int id = sc.nextInt(), row = sc.nextInt(), col = sc.nextInt();
-				setDog(row, col, id, map);
+				System.err.println(id+", "+row+", "+col);
+				setDog(row, col, id+1, map);
 				addDog(row, col, i);
 			}
 			// item
@@ -165,6 +167,7 @@ public class Main {
 		for(int i=0; i<2; i++) res += walkEachSimple(i)+"\n";
 		if(setSkill != null) res = "3\n" + setSkill + "\n" + res;
 		else res = "2\n" + res;
+		turn++;
 		return res;
 	}
 	
@@ -178,6 +181,10 @@ public class Main {
 		final int x = pos[id]%W;
 //		System.err.println(id+":pos:"+y+","+x);
 //		dump(itemDist);
+		System.out.println("Dog:");
+		dump(map, msd);
+		System.out.println("Stone:");
+		dump(map, mss);
 		int dogCount = 0;
 		int stoneCount = 0;
 		for(int i=0; i<4; i++){
@@ -210,6 +217,13 @@ public class Main {
 		return ds[bm1]+ds[bm2];
 	}
 	
+	void dump(int[] map, int mask){
+		for(int i=0; i<map.length; i++){
+			System.out.print((map[i]&mask)>0?1:0);
+			if((i+1)%W==0) System.out.println();
+		}
+	}
+	
 	void dump(int[][] dist){
 		for(int i=0; i<dist.length; i++){
 			for(int j=0; j<dist[i].length; j++){
@@ -229,12 +243,12 @@ public class Main {
 	
 //	int dist[][] = new int[H][W];
 	void order() {
-		bfs(itemDist, item, items);
-		bfs(dogDist, dog, dogs);
+		bfsDog(dogDist, dog, dogs);
+		bfsItem(itemDist, item, items);
 	}
 
 	int qy[] = new int[H*W], qx[] = new int[H*W];
-	void bfs(int[][] dist, int[] list, int n){
+	void bfsDog(int[][] dist, int[] list, int n){
 		for (int i = 0; i < H; ++i)
 			Arrays.fill(dist[i], Integer.MAX_VALUE);
 		int qi = 0, qe = 0;
@@ -254,6 +268,36 @@ public class Main {
 				int ny = y+dy[i];
 				int nx = x+dx[i];
 				if (isFloor(ny, nx, map) && dist[ny][nx] == Integer.MAX_VALUE) {
+					dist[ny][nx] = dist[y][x] + 1;
+					qy[qe] = ny;
+					qx[qe] = nx;
+					++qe;
+				}else if(isStone(ny, nx, map) && dist[ny][nx]==Integer.MAX_VALUE)
+					dist[ny][nx] = dist[y][x] + 1;
+			}
+		}
+	}
+	void bfsItem(int[][] dist, int[] list, int n){
+		for (int i = 0; i < H; ++i)
+			Arrays.fill(dist[i], Integer.MAX_VALUE);
+		int qi = 0, qe = 0;
+		for(int i=0; i<n; i++){
+			final int y = list[i]/W;
+			final int x = list[i]%W;
+			if(isStone(y, x, map)) continue;
+			qy[i] = y;
+			qx[i] = x;
+			dist[y][x] = 0;
+			qe++;
+		}
+		while (qi < qe) {
+			int y = qy[qi], x = qx[qi];
+			++qi;
+			for (int i = 0; i < 4; ++i) {
+				int ny = y+dy[i];
+				int nx = x+dx[i];
+				if (isFloor(ny, nx, map) && !isDog(ny, nx, map)
+						&& dist[ny][nx] == Integer.MAX_VALUE) {
 					dist[ny][nx] = dist[y][x] + 1;
 					qy[qe] = ny;
 					qx[qe] = nx;
