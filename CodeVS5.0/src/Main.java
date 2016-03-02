@@ -4,6 +4,8 @@ import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.PriorityQueue;
+import java.util.Queue;
 
 public class Main {
 	public static final void main(String args[]) {
@@ -27,11 +29,6 @@ public class Main {
 		}
 	}
 
-//	private static final int dx[] = { 0, 1, 0, -1 };
-//	private static final int dy[] = { 1, 0, -1, 0 };
-//	private static final String ds[] = { "L", "U", "R", "D" };
-//	int point, map_row, map_col;
-//	boolean[][] map, itemMap;
 	int turn = 0;
 	final static int H = 17;
 	final static int W = 14;
@@ -74,6 +71,7 @@ public class Main {
 	int[] subitem = new int[20];
 	int items;
 	int[][] dogDist = new int[H][W];
+	HashMap<Integer, Integer> id2idxDog = new HashMap<>();
 	int[] dog = new int[H*W];
 	int dogs;
 	
@@ -92,6 +90,8 @@ public class Main {
 	void setItem(int y, int x, int[] s){s[y*W+x] |= msi;}
 	void setDog(int y, int x, int id, int[] s){s[y*W+x] |= id;}
 	
+	int getDog(int y, int x, int[] s){return s[y*W+x]&msd;}
+	
 	boolean isStone(int y, int x, int[] s){return (s[y*W+x]&mss)>0;}
 	boolean isWall(int y, int x, int[] s){return (s[y*W+x]&msw)>0;}
 	boolean isFloor(int y, int x, int[] s){return (s[y*W+x]&(mss|msw))==0;}
@@ -102,13 +102,17 @@ public class Main {
 	
 	void removeStone(int y, int x, int[] s){s[y*W+x] &= ~mss;}
 	void removeNinja(int y, int x, int id, int[] s){s[y*W+x]&=~(msn1<<id);}
+	void removeDog(int y, int x, int[] s){
+		if(!isDog(y, x, s)) return;
+		id2idxDog.remove(s[y*W+x]&msd);
+		s[y*W+x] &= ~msd;
+	}
 	
 	void addItem(int y, int x, int i){item[i] = y*W+x;}
-	void addDog(int y, int x, int i, int[] list){list[i] = y*W+x;}
+	void addDog(int y, int x, int i, int[] list){list[i]=y*W+x;}
 	
 	String setSkill;
 	String think(ContestScanner sc) throws IOException {
-//		StringBuilder res = new StringBuilder();
 		long millitime = sc.nextLong();
 		setSkill = null;
 		sc.nextInt();
@@ -141,8 +145,10 @@ public class Main {
 			// zombie
 			n = sc.nextInt();
 			dogs = n;
+			id2idxDog.clear();
 			for (int i = 0; i < n; ++i) {
 				int id = sc.nextInt(), row = sc.nextInt(), col = sc.nextInt();
+				id2idxDog.put(id, i);
 				setDog(row, col, id+1, map);
 				addDog(row, col, i, dog);
 			}
@@ -160,15 +166,12 @@ public class Main {
 			for (int i = 0; i < skills; ++i) {
 				useSkill[i] = sc.nextInt();
 			}
-//			res.append(rows.length).append("\n");
-//			for (int i = 0; i < rows.length; ++i) {
-//				res.append(order(rows[i], cols[i])).append("\n");
-//			}
 			for(int i=0; i<items; i++) subitem[i] = item[i];
 			for(int i=0; i<map.length; i++) submap[i] = map[i];
 		}
 		{
-			int point = sc.nextInt(), map_row = sc.nextInt(), map_col = sc.nextInt();
+			ePow = sc.nextInt();
+			int map_row = sc.nextInt(), map_col = sc.nextInt();
 			boolean map[][] = new boolean[map_row][map_col];
 			for(int i=0; i<H; i++){
 				char[] s = sc.nextToken().toCharArray();
@@ -192,14 +195,11 @@ public class Main {
 				int row = sc.nextInt(), col = sc.nextInt();
 			}
 			for (int i = 0; i < skills; ++i) {
-				int use = sc.nextInt();
+				eSkillUse[i] = sc.nextInt();
 			}
 		}
-//		if(turn==3){
-//			System.err.println("turn");
-//		}
 		System.err.println("turn:"+turn);
-		if(turn==24){
+		if(turn==28){
 			System.err.println("stop");
 		}
 		bfsDog(eDogDist, eDogList, eDogs, emap);
@@ -217,20 +217,29 @@ public class Main {
 		int stone = stoneAttack();
 		if(stone != -1){
 			return SK_STONE_EN+" "+(stone/W)+" "+(stone%W);
+		}else if(nesc != -1 && eSkillUse[SK_COPY_ME]>0 && ePow>eSkillUse[SK_COPY_ME]){
+			return SK_COPY_EN+" "+(epos[nesc]/W)+" "+(epos[nesc]%W);
 		}
 		return null;
 	}
 	
+	int[] eSkillUse = new int[8];
 	int[][] eDogDist = new int[H][W];
 	int[] eDogList = new int[H*W];
-	int eDogs;
+	int eDogs, ePow;
 	int[] emap = new int[H*W];
 	int[] epos = new int[2];
+	int nesc;
 	int stoneAttack(){
 		if(cost[SK_STONE_EN]>pow) return -1;
+		nesc = -1;
 		for(int pid=0; pid<2; pid++){
 			final int y = epos[pid]/W;
 			final int x = epos[pid]%W;
+			if(!escapable(y, x, emap) && eDogDist[y][x]==1){
+				nesc = pid;
+				continue;
+			}
 			int count = 0;
 			if(eDogDist[y][x]>2) continue;
 			for(int i=0; i<8; i++){
@@ -239,7 +248,7 @@ public class Main {
 				if(isStone(ny, nx, emap) || isWall(ny, nx, emap) || isDog(ny, nx, emap))
 					count++;
 			}
-			if(count<6) continue;
+			if(count<4) continue;
 			for(int sy=y-2; sy<=y+2; sy++){
 				for(int sx=x-2; sx<=x+2; sx++){
 					if(sy<1||sy>=H-1||sx<1||sx>=W-1||sy==y && sx==x
@@ -291,19 +300,11 @@ public class Main {
 	}
 	
 	String walkEachSimple(int pid){
-		int bestDog = 0;
-		int bestItem = inf; // item蜆ｪ蜈�
+		int bestItem = inf;
 		int bm1 = 4, bm2 = 4, bm3 = -1;
 		boolean isItem = false;
 		final int y = pos[pid]/W;
 		final int x = pos[pid]%W;
-//		System.err.println(id+":pos:"+y+","+x);
-//		dump(itemDist);
-//		System.out.println("Dog:");
-//		dump(map, msd);
-//		System.out.println("Stone:");
-//		dump(map, mss);
-		boolean useFast = pow>cost[SK_ATTACK];
 		int dogCount = 0;
 		int stoneCount = 0;
 		for(int i=0; i<4; i++){
@@ -325,7 +326,6 @@ public class Main {
 				}
 				if(bestItem>point){
 					bestItem = point;
-					// bestDog = dogDist[ny][nx] // 莉翫�ｯ迥ｬ(縺ｮ霍晞屬)縺ｯ辟｡隕�
 					bm1 = i;
 					bm2 = j;
 					bm3 = -1;
@@ -333,9 +333,14 @@ public class Main {
 				
 			}
 		}
-		if(bm1==4 || dogCount+stoneCount==4 && dogCount>1){
-			// (陦薙ｒ菴ｿ繧上↑縺代ｌ縺ｰ)隧ｰ縺ｿ
+		if(cost[SK_ATTACK]<=pow && (bm1==4 || dogCount+stoneCount==4 && dogCount>1)){
 			setSkill = "7 "+pid;
+			for(int i=0; i<8; i++){
+				removeDog(y+dy8[i], x+dx8[i], map);
+			}
+			bfsDog(dogDist, dog, dogs, map);
+			String res = searchNearItem(itemDist, item, items, 1, pid);
+			if(res != null) return res;
 		}
 		return ds[bm1]+ds[bm2];
 	}
@@ -367,7 +372,6 @@ public class Main {
 		return isStoneMove(ny+dy[d], nx+dx[d], map);
 	}
 	
-//	int dist[][] = new int[H][W];
 	void order() {
 		bfsDog(dogDist, dog, dogs, map);
 		bfsItem(itemDist, item, items, map);
@@ -431,6 +435,57 @@ public class Main {
 					++qe;
 				}else if(isStone(ny, nx, map) && dist[ny][nx]==inf)
 					dist[ny][nx] = dist[y][x] + 1;
+			}
+		}
+	}
+	
+	void bfsPos(int[][] dist, int[] list, int n){
+		for(int i=0; i<H; i++)
+			Arrays.fill(dist[i], inf);
+		int qi = 0, qe = 0;
+		for(int i=0; i<n; i++){
+			final int y = list[i]/W;
+			final int x = list[i]%W;
+			qy[i] = y;
+			qx[i] = x;
+			dist[y][x] = 0;
+			qe++;
+		}
+		while (qi < qe) {
+			int y = qy[qi], x = qx[qi];
+			++qi;
+			for (int i = 0; i < 4; ++i) {
+				int ny = y+dy[i];
+				int nx = x+dx[i];
+				if (isFloor(ny, nx, map) && dist[ny][nx] == inf) {
+					dist[ny][nx] = dist[y][x] + 1;
+					qy[qe] = ny;
+					qx[qe] = nx;
+					++qe;
+				}
+			}
+		}
+	}
+	
+	int[][] sdist = new int[H][W];
+	Queue<Integer> qu = new PriorityQueue<>();
+	BitSet dogMap = new BitSet(H*W);
+	void simulateDogs(int[] pos, int[] map, int dogs, int[] dogList){
+		bfsPos(sdist, pos, pos.length);
+		// TODO
+		dogMap.clear();
+		qu.clear();
+		for(int i=0; i<dogs; i++){
+			final int y = dogList[i]/W;
+			final int x = dogList[i]%W;
+			final int id = getDog(y, x, map);
+			qu.add((sdist[y][x]<<10)|id);
+			dogMap.set(dogList[i]);
+		}
+		while(!qu.isEmpty()){
+			int p = qu.poll();
+			for(int i=0; i<4; i++){
+				
 			}
 		}
 	}
@@ -572,16 +627,7 @@ public class Main {
 			if(--dst<2) dir[dst] = 3-bfr[ay][ax];
 			ay = newy;
 			ax = newx;
-//			for(int i=0; i<4; i++){
-//				if(dist[ay+dy[i]][ax+dx[i]]==dist[ay][ax]-1){
-//					dist[ay][ax] = -2;
-//					ay += dy[i];
-//					ax += dx[i];
-//					break;
-//				}
-//			}
 		}
-//		dist[oay][oax] = -3;
 		String res = "";
 		if(dir[1]!=-1){
 			removeNinja(ay, ax, pid, map);
@@ -594,7 +640,6 @@ public class Main {
 			}
 			if(dep==0){
 				setNinja(ny, nx, pid, map, pos);
-//				if(oldDst==1) removeFromItemDist(oay, oax);
 				res = ds[dir[0]];
 			}else{
 				ny += dy[dir[1]];
@@ -629,46 +674,7 @@ public class Main {
 		}
 		if(nextToDog(pid)) return null;
 		return res;
-//		for(int i=0; i<4; i++){
-//			if(dist[ay+dy[i]][ax+dx[i]]==-2){
-//				removeNinja(ay, ax, pid, map);
-//				setNinja(ay+dy[i], ax+dx[i], pid, map);
-//				if(dep==0) return ds[i];
-//				// もう一段探索
-//				final int ny = ay+dy[i];
-//				final int nx = ax+dx[i];
-//				for(int j=0; j<4; j++){
-//					if(dist[ny+dy[j]][nx+dx[j]]<=-2){
-//						if(dist[ny+dy[j]][nx+dx[j]]==-3){
-//							// itemDist再構築
-//							removeFromItemDist(ny+dy[i], nx+dx[i]);
-//						}
-//						removeNinja(ny, nx, pid, map);
-//						setNinja(ny+dy[j], nx+dx[j], pid, map);
-//						return ds[i]+ds[j];
-//					}
-//				}
-//			}else if(dist[ay+dy[i]][ax+dx[i]]==-3){
-//				// itemDistを再構築して再探索
-//				removeFromItemDist(ay+dy[i], ax+dx[i]);
-//				removeNinja(ay, ax, pid, map);
-//				setNinja(ay+dy[i], ax+dx[i], pid, map);
-//				if(dep==0) return ds[i];
-//				String add = searchNearItem(dist, list, n, dep-1, pid);
-//				if(add==null) return ds[i]; // add==null はあるの？
-//				return ds[i]+add;
-//			}
-//		}
-//		System.err.println("search failed");
-//		return null;
 	}
-	
-//	void applyStoneMap(BitSet newmap, int[] map){
-//		for(int i=0; i<map.length; i++){
-//			map[i] &= ~mss;
-//			if(newmap.get(i)) map[i] |= mss;
-//		}
-//	}
 	
 	boolean nextToDog(int pid){
 		final int y = pos[pid]/W;
