@@ -2,6 +2,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
+import java.util.BitSet;
 
 public class Main {
 	public static final void main(String args[]) {
@@ -175,24 +176,26 @@ public class Main {
 //		if(turn==3){
 //			System.err.println("turn");
 //		}
+		System.err.println("turn:"+turn);
+		if(turn==12){
+			System.err.println("stop");
+		}
 		order();
 		String res = "";
-		for(int i=0; i<2; i++) res += walkEachSimple(i)+"\n";
+		for(int i=0; i<2; i++) res += searchItemSimple(i)+"\n";
 		if(setSkill != null) res = "3\n" + setSkill + "\n" + res;
 		else res = "2\n" + res;
 		turn++;
 		return res;
 	}
 	
-	
-	
-	String walkEachSimple(int id){
+	String walkEachSimple(int pid){
 		int bestDog = 0;
-		int bestItem = inf; // item優先
+		int bestItem = inf; // item蜆ｪ蜈�
 		int bm1 = 4, bm2 = 4, bm3 = -1;
 		boolean isItem = false;
-		final int y = pos[id]/W;
-		final int x = pos[id]%W;
+		final int y = pos[pid]/W;
+		final int x = pos[pid]%W;
 //		System.err.println(id+":pos:"+y+","+x);
 //		dump(itemDist);
 //		System.out.println("Dog:");
@@ -221,7 +224,7 @@ public class Main {
 				}
 				if(bestItem>point){
 					bestItem = point;
-					// bestDog = dogDist[ny][nx] // 今は犬(の距離)は無視
+					// bestDog = dogDist[ny][nx] // 莉翫�ｯ迥ｬ(縺ｮ霍晞屬)縺ｯ辟｡隕�
 					bm1 = i;
 					bm2 = j;
 					bm3 = -1;
@@ -230,8 +233,8 @@ public class Main {
 			}
 		}
 		if(bm1==4 || dogCount+stoneCount==4 && dogCount>1){
-			// (術を使わなければ)詰み
-			setSkill = "7 "+id;
+			// (陦薙ｒ菴ｿ繧上↑縺代ｌ縺ｰ)隧ｰ縺ｿ
+			setSkill = "7 "+pid;
 		}
 		return ds[bm1]+ds[bm2];
 	}
@@ -301,6 +304,7 @@ public class Main {
 			Arrays.fill(dist[i], inf);
 		int qi = 0, qe = 0;
 		for(int i=0; i<n; i++){
+			if(list[i]==-1) continue;
 			final int y = list[i]/W;
 			final int x = list[i]%W;
 			if(isStone(y, x, map)) continue;
@@ -325,6 +329,134 @@ public class Main {
 					dist[ny][nx] = dist[y][x] + 1;
 			}
 		}
+	}
+	
+	String searchItemSimple(int pid){
+		System.err.println("Player: "+pid);
+		String res = searchNearItem(itemDist, item, items, 1, pid);
+		if(res==null) return walkEachSimple(pid);
+		else return res;
+	}
+	
+	BitSet[] qbs = new BitSet[H*W];
+	String searchNearItem(int[][] dist, int[] list, int n, int dep, int pid){
+		for (int i = 0; i < H; ++i)
+			Arrays.fill(dist[i], inf);
+		int qi = 0, qe = 0;
+		for(int i=0; i<n; i++){
+			if(list[i]<0) continue;
+			final int y = list[i]/W;
+			final int x = list[i]%W;
+			dist[y][x] = -1;
+		}
+		{
+			final int y = pos[pid]/W;
+			final int x = pos[pid]%W;
+			qy[0] = y;
+			qx[0] = x;
+			dist[y][x] = 0;
+			qbs[0] = mapToBS(map, mss);
+			qe++;
+		}
+		int ay = -1, ax = -1;
+		out: while (qi < qe) {
+			int y = qy[qi], x = qx[qi];
+			BitSet smap = qbs[qi];
+			++qi;
+			for (int i = 0; i < 4; ++i) {
+				int ny = y+dy[i];
+				int nx = x+dx[i];
+				// 岩の向こうの犬は無視していることに注意
+				if(dist[ny][nx]==inf && !isWall(ny, nx, map)
+						// 岩がないか、押せる岩
+						&& (!get(ny, nx, smap) || !get(ny+dy[i], nx+dx[i], smap) && !isWall(ny+dy[i], nx+dx[i], map))
+						&& (dist[y][x]+2)/2<dogDist[ny][nx]){
+					dist[ny][nx] = dist[y][x]+1;
+					qy[qe] = ny;
+					qx[qe] = nx;
+					BitSet newbs = (BitSet)smap.clone();
+					if(get(ny, nx, smap)){
+						clear(ny, nx, newbs);
+						set(ny+dy[i], nx+dx[i], newbs);
+					}
+					qbs[qe] = newbs;
+					++qe;
+				}else if(dist[ny][nx]==-1 && (!get(ny, nx, smap) || !get(ny+dy[i], nx+dx[i], smap) && !isWall(ny+dy[i], nx+dx[i], map))
+						&& (dist[y][x]+2)/2<dogDist[ny][nx]){
+					ay = ny;
+					ax = nx;
+					dist[ny][nx] = dist[y][x]+1;
+					break out;
+				}
+			}
+		}
+		if(ay==-1){
+			System.err.println("search failed");
+			return null;
+		}
+		int oay = ay;
+		int oax = ax;
+//		dump(dist);
+//		dist[ay][ax] = -3;
+		while(dist[ay][ax]!=0){
+			for(int i=0; i<4; i++){
+				if(dist[ay+dy[i]][ax+dx[i]]==dist[ay][ax]-1){
+					dist[ay][ax] = -2;
+					ay += dy[i];
+					ax += dx[i];
+					break;
+				}
+			}
+		}
+		dist[oay][oax] = -3;
+//		String res = "";
+		for(int i=0; i<4; i++){
+			if(dist[ay+dy[i]][ax+dx[i]]==-2){
+				if(dep==0) return ds[i];
+				// もう一段探索
+				final int ny = ay+dy[i];
+				final int nx = ax+dx[i];
+				for(int j=0; j<4; j++){
+					if(dist[ny+dy[j]][nx+dx[j]]<=-2){
+						if(dist[ny+dy[j]][nx+dx[j]]==-3){
+							// itemDist再構築
+							removeFromItemDist(ny+dy[i], nx+dx[i]);
+						}
+						return ds[i]+ds[j];
+					}
+				}
+			}else if(dist[ay+dy[i]][ax+dx[i]]==-3){
+				// itemDistを再構築して再探索
+				removeFromItemDist(ay+dy[i], ax+dx[i]);
+				if(dep==0) return ds[i];
+				String add = searchNearItem(dist, list, n, dep-1, pid);
+				if(add==null) return ds[i]; // add==null はあるの？
+				return ds[i]+add;
+			}
+		}
+		System.err.println("search failed");
+		return null;
+	}
+	
+	void removeFromItemDist(int y, int x){
+		int idx = y*W+x;
+		for(int i=0; i<items; i++){
+			if(item[i]==idx){
+				item[i] = -1;
+				break;
+			}
+		}
+		bfsItem(itemDist, item, items);
+	}
+	
+	boolean get(int y, int x, BitSet bs){return bs.get(y*W+x);}
+	void clear(int y, int x, BitSet bs){bs.clear(y*W+x);}
+	void set(int y, int x, BitSet bs){bs.set(y*W+x);}
+	
+	BitSet mapToBS(int[] map, int mask){
+		BitSet bs = new BitSet(map.length);
+		for(int i=0; i<map.length; i++) if((map[i]&mask)>0) bs.set(i);
+		return bs;
 	}
 //
 //		int tr = -1, tc = -1, tdist = inf;
