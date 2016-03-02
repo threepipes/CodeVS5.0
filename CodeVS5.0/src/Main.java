@@ -88,7 +88,7 @@ public class Main {
 	void setWall(int y, int x, int[] s){s[y*W+x] |= msw;}
 	void setNinja1(int y, int x, int[] s){s[y*W+x] |= msn1;}
 	void setNinja2(int y, int x, int[] s){s[y*W+x] |= msn2;}
-	void setNinja(int y, int x, int id,int[]s){s[y*W+x]|=msn1<<id;pos[id]=y*W+x;}
+	void setNinja(int y, int x, int id,int[]s, int[] pos){s[y*W+x]|=msn1<<id;pos[id]=y*W+x;}
 	void setItem(int y, int x, int[] s){s[y*W+x] |= msi;}
 	void setDog(int y, int x, int id, int[] s){s[y*W+x] |= id;}
 	
@@ -104,7 +104,7 @@ public class Main {
 	void removeNinja(int y, int x, int id, int[] s){s[y*W+x]&=~(msn1<<id);}
 	
 	void addItem(int y, int x, int i){item[i] = y*W+x;}
-	void addDog(int y, int x, int i){dog[i] = y*W+x;}
+	void addDog(int y, int x, int i, int[] list){list[i] = y*W+x;}
 	
 	String setSkill;
 	String think(ContestScanner sc) throws IOException {
@@ -113,6 +113,7 @@ public class Main {
 		setSkill = null;
 		sc.nextInt();
 		Arrays.fill(map, 0);
+		Arrays.fill(emap, 0);
 		for (int i = 0; i < skills; ++i) {
 			cost[i] = sc.nextInt();
 		}
@@ -131,22 +132,19 @@ public class Main {
 
 			// character
 			n = sc.nextInt();
-			int rows[] = new int[n];
-			int cols[] = new int[n];
 			for (int i = 0; i < n; ++i) {
 				int id = sc.nextInt(), row = sc.nextInt(), col = sc.nextInt();
 				pos[id] = row*W+col;
 				subpos[id] = pos[id];
-				setNinja(row, col, id, map);
+				setNinja(row, col, id, map, pos);
 			}
 			// zombie
 			n = sc.nextInt();
 			dogs = n;
 			for (int i = 0; i < n; ++i) {
 				int id = sc.nextInt(), row = sc.nextInt(), col = sc.nextInt();
-				System.err.println(id+", "+row+", "+col);
 				setDog(row, col, id+1, map);
-				addDog(row, col, i);
+				addDog(row, col, i, dog);
 			}
 			// item
 			n = sc.nextInt();
@@ -172,17 +170,23 @@ public class Main {
 		{
 			int point = sc.nextInt(), map_row = sc.nextInt(), map_col = sc.nextInt();
 			boolean map[][] = new boolean[map_row][map_col];
-			for (int r = 0; r < map_row; ++r) {
-				String line = sc.nextToken();
-				for (int c = 0; c < map_col; ++c) {
-					map[r][c] = line.charAt(c) == '_';
+			for(int i=0; i<H; i++){
+				char[] s = sc.nextToken().toCharArray();
+				for(int j=0; j<W; j++){
+					if(s[j]=='O') setStone(i, j, emap);
+					else if(s[j]=='W') setWall(i, j, emap);
 				}
 			}
 			for (int i = 0, n = sc.nextInt(); i < n; ++i) {
 				int id = sc.nextInt(), row = sc.nextInt(), col = sc.nextInt();
+				epos[id] = row*W+col;
+				setNinja(row, col, id, emap, epos);
 			}
-			for (int i = 0, n = sc.nextInt(); i < n; ++i) {
+			eDogs = sc.nextInt();
+			for (int i = 0; i < eDogs; ++i) {
 				int id = sc.nextInt(), row = sc.nextInt(), col = sc.nextInt();
+				setDog(row, col, id+1, emap);
+				addDog(row, col, i, eDogList);
 			}
 			for (int i = 0, n = sc.nextInt(); i < n; ++i) {
 				int row = sc.nextInt(), col = sc.nextInt();
@@ -195,11 +199,13 @@ public class Main {
 //			System.err.println("turn");
 //		}
 		System.err.println("turn:"+turn);
-		if(turn==32){
+		if(turn==24){
 			System.err.println("stop");
 		}
+		bfsDog(eDogDist, eDogList, eDogs, emap);
 		order();
 		String res = "";
+		setSkill = useSkill();
 		for(int i=0; i<2; i++) res += searchItemSimple(i)+"\n";
 		if(setSkill != null) res = "3\n" + setSkill + "\n" + res;
 		else res = "2\n" + res;
@@ -207,14 +213,81 @@ public class Main {
 		return res;
 	}
 	
-	void update(){
-		// 確定した分を更新
-		
+	String useSkill(){
+		int stone = stoneAttack();
+		if(stone != -1){
+			return SK_STONE_EN+" "+(stone/W)+" "+(stone%W);
+		}
+		return null;
 	}
 	
-	void back(){
+	int[][] eDogDist = new int[H][W];
+	int[] eDogList = new int[H*W];
+	int eDogs;
+	int[] emap = new int[H*W];
+	int[] epos = new int[2];
+	int stoneAttack(){
+		if(cost[SK_STONE_EN]>pow) return -1;
+		for(int pid=0; pid<2; pid++){
+			final int y = epos[pid]/W;
+			final int x = epos[pid]%W;
+			int count = 0;
+			if(eDogDist[y][x]>2) continue;
+			for(int i=0; i<8; i++){
+				final int ny = y+dy8[i];
+				final int nx = x+dx8[i];
+				if(isStone(ny, nx, emap) || isWall(ny, nx, emap) || isDog(ny, nx, emap))
+					count++;
+			}
+			if(count<6) continue;
+			for(int sy=y-2; sy<=y+2; sy++){
+				for(int sx=x-2; sx<=x+2; sx++){
+					if(sy<1||sy>=H-1||sx<1||sx>=W-1||sy==y && sx==x
+							|| isStone(sy, sx, emap)
+							|| isDog(sy, sx, emap)
+							|| isNinja(sy, sx, emap))
+						continue;
+					setStone(sy, sx, emap);
+					if(!escapable(y, x, emap)){
+						return sy*W+sx;
+					}
+					removeStone(sy, sx, emap);
+				}
+			}
+		}
+		return -1;
+	}
+	
+	boolean escapable(int y, int x, int[] map){
+		for(int i=0; i<4; i++){
+			if(!okMove(y, x, i, map) || eDogDist[y+dy[i]][x+dx[i]] == 0) continue;
+			final int ny = y+dy[i];
+			final int nx = x+dx[i];
+			for(int j=0; j<5; j++){
+				final int nnx = nx+dx[j];
+				final int nny = ny+dy[j];
+				if(!okMove(ny, nx, j, map) || eDogDist[nny][nnx] <= 1
+						|| nny==y && nnx==x)
+					continue;
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	void update(int pid){
+		// 確定した分を更新
+		for(int i=0; i<map.length; i++) submap[i] = map[i];
+		subpos[pid] = pos[pid];
+		for(int i=0; i<items; i++) subitem[i] = item[i];
+	}
+	
+	void reset(int pid){
 		// マップ、プレイヤー座標、アイテム を戻す
 		// 今後、スキルなどもありうる
+		for(int i=0; i<map.length; i++) map[i] = submap[i];
+		pos[pid] = subpos[pid];
+		for(int i=0; i<items; i++) item[i] = subitem[i];
 	}
 	
 	String walkEachSimple(int pid){
@@ -234,15 +307,15 @@ public class Main {
 		int dogCount = 0;
 		int stoneCount = 0;
 		for(int i=0; i<4; i++){
-			if(!okMove(y, x, i) || dogDist[y+dy[i]][x+dx[i]] == 0) continue;
+			if(!okMove(y, x, i, map) || dogDist[y+dy[i]][x+dx[i]] == 0) continue;
 			final int ny = y+dy[i];
 			final int nx = x+dx[i];
 			if(isDog(ny, nx, map)) dogCount++;
 			else if(isStone(ny, nx, map)) stoneCount++;
 			if(isItem(ny, nx, map)) isItem = true;
 			for(int j=0; j<5; j++){
-				if(!okMove(ny, nx, j) || dogDist[ny+dy[j]][nx+dx[j]] <= 1
-						|| x==nx+dx[j]&&y==ny+dy[j]) continue;
+				if(!okMove(ny, nx, j, map) || dogDist[ny+dy[j]][nx+dx[j]] <= 1)
+					continue;
 				final int nnx = nx+dx[j];
 				final int nny = ny+dy[j];
 				int point = itemDist[nny][nnx];
@@ -285,7 +358,8 @@ public class Main {
 		System.err.println();
 	}
 	
-	boolean okMove(int y, int x, int d){
+	boolean okMove(int y, int x, int d, int[] map){
+		if(d==4) return true;
 		final int ny = y+dy[d];
 		final int nx = x+dx[d];
 		if(isFloor(ny, nx, map)) return true;
@@ -295,12 +369,12 @@ public class Main {
 	
 //	int dist[][] = new int[H][W];
 	void order() {
-		bfsDog(dogDist, dog, dogs);
-		bfsItem(itemDist, item, items);
+		bfsDog(dogDist, dog, dogs, map);
+		bfsItem(itemDist, item, items, map);
 	}
 
 	int qy[] = new int[H*W], qx[] = new int[H*W];
-	void bfsDog(int[][] dist, int[] list, int n){
+	void bfsDog(int[][] dist, int[] list, int n, int[] map){
 		for (int i = 0; i < H; ++i)
 			Arrays.fill(dist[i], inf);
 		int qi = 0, qe = 0;
@@ -329,7 +403,7 @@ public class Main {
 			}
 		}
 	}
-	void bfsItem(int[][] dist, int[] list, int n){
+	void bfsItem(int[][] dist, int[] list, int n, int[] map){
 		for (int i = 0; i < H; ++i)
 			Arrays.fill(dist[i], inf);
 		int qi = 0, qe = 0;
@@ -365,8 +439,10 @@ public class Main {
 		System.err.println("Player: "+pid);
 		String res = searchNearItem(itemDist, item, items, 1, pid);
 		if(res==null){
+			reset(pid);
 			return walkEachSimple(pid);
 		}
+		update(pid);
 		removeFromItemDist(target[pid]);
 		return res;
 	}
@@ -375,14 +451,14 @@ public class Main {
 	final static int[] dx8 = {1, 0,-1, 1,-1, 1, 0,-1};
 	void culcEval(){
 		for(int i=0; i<H; i++)
-			Arrays.fill(point, 0);
+			Arrays.fill(point[i], 0);
 		for(int i=1; i<H-1; i++){
 			for(int j=1; j<W-1; j++){
 				if(isDog(i, j, map) || isStone(i, j, map)) continue;
 				point[i][j] = isItem(i, j, map)?150:100;
 				for(int k=0; k<8; k++){
-					final int y = i+dy[k];
-					final int x = j+dx[k];
+					final int y = i+dy8[k];
+					final int x = j+dx8[k];
 					if(isDog(y, x, map)){
 						point[i][j] -= 10;
 					}else if(isStone(y, x, map)){
@@ -457,8 +533,6 @@ public class Main {
 						ay = ny;
 						ax = nx;
 //						lastMap = newbs;
-						target[pid] = xy2idxItem.get(ny*W+nx);
-						targetDist[pid] = dist[ny][nx];
 					}
 					++qe;
 				}else if(dist[ny][nx]==-1 && (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map))
@@ -519,7 +593,7 @@ public class Main {
 				setStone(ny+dy[dir[0]], nx+dx[dir[0]], map);
 			}
 			if(dep==0){
-				setNinja(ny, nx, pid, map);
+				setNinja(ny, nx, pid, map, pos);
 //				if(oldDst==1) removeFromItemDist(oay, oax);
 				res = ds[dir[0]];
 			}else{
@@ -529,7 +603,7 @@ public class Main {
 					removeStone(ny, nx, map);
 					setStone(ny+dy[dir[1]], nx+dx[dir[1]], map);
 				}
-				setNinja(ny, nx, pid, map);
+				setNinja(ny, nx, pid, map, pos);
 				if(oldDst<=2) removeFromItemDist(oay, oax);
 				res = ds[dir[0]]+ds[dir[1]];
 			}
@@ -538,7 +612,7 @@ public class Main {
 			// apply stone to map
 			int ny = ay+dy[dir[0]];
 			int nx = ax+dx[dir[0]];
-			setNinja(ny, nx, pid, map);
+			setNinja(ny, nx, pid, map, pos);
 			if(isStone(ny, nx, map)){
 				removeStone(ny, nx, map);
 				setStone(ny+dy[dir[0]], nx+dx[dir[0]], map);
@@ -604,7 +678,7 @@ public class Main {
 	
 	void removeFromItemDist(int idx){
 		item[idx] = -1;
-		bfsItem(itemDist, item, items);
+		bfsItem(itemDist, item, items, map);
 	}
 	void removeFromItemDist(int y, int x){
 		int idx = y*W+x;
@@ -614,7 +688,7 @@ public class Main {
 				break;
 			}
 		}
-		bfsItem(itemDist, item, items);
+		bfsItem(itemDist, item, items, map);
 	}
 	
 	boolean get(int y, int x, BitSet bs){return bs.get(y*W+x);}
