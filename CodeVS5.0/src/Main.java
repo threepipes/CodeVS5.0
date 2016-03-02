@@ -82,6 +82,8 @@ public class Main {
 	int[] targetDist = new int[2];
 	int[] subpos = new int[2];
 	
+	int[][] point = new int[H][W];
+	
 	void setStone(int y, int x, int[] s){s[y*W+x] |= mss;}
 	void setWall(int y, int x, int[] s){s[y*W+x] |= msw;}
 	void setNinja1(int y, int x, int[] s){s[y*W+x] |= msn1;}
@@ -369,6 +371,33 @@ public class Main {
 		return res;
 	}
 	
+	final static int[] dy8 = {1, 1, 1, 0, 0,-1,-1,-1};
+	final static int[] dx8 = {1, 0,-1, 1,-1, 1, 0,-1};
+	void culcEval(){
+		for(int i=0; i<H; i++)
+			Arrays.fill(point, 0);
+		for(int i=1; i<H-1; i++){
+			for(int j=1; j<W-1; j++){
+				if(isDog(i, j, map) || isStone(i, j, map)) continue;
+				point[i][j] = isItem(i, j, map)?150:100;
+				for(int k=0; k<8; k++){
+					final int y = i+dy[k];
+					final int x = j+dx[k];
+					if(isDog(y, x, map)){
+						point[i][j] -= 10;
+					}else if(isStone(y, x, map)){
+						point[i][j] -= 3;
+					}else if(isWall(y, x, map)){
+						point[i][j] -= 5;
+					}
+					if(isItem(y, x, map)){
+						point[i][j] += 5;
+					}
+				}
+			}
+		}
+	}
+	
 	BitSet[] qbs = new BitSet[H*W];
 	int[][] bfr = new int[H][W];
 	String searchNearItem(int[][] dist, int[] list, int n, int dep, int pid){
@@ -394,8 +423,10 @@ public class Main {
 			qbs[0] = mapToBS(map, mss);
 			qe++;
 		}
+		culcEval();
 		int ay = -1, ax = -1;
-		BitSet lastMap = null;
+//		BitSet lastMap = null;
+		int best = 0;
 		out: while (qi < qe) {
 			int y = qy[qi], x = qx[qi];
 			BitSet smap = qbs[qi];
@@ -421,16 +452,24 @@ public class Main {
 						set(nny, nnx, newbs);
 					}
 					qbs[qe] = newbs;
+					if(point[ny][nx]>best){
+						best = point[ny][nx];
+						ay = ny;
+						ax = nx;
+//						lastMap = newbs;
+						target[pid] = xy2idxItem.get(ny*W+nx);
+						targetDist[pid] = dist[ny][nx];
+					}
 					++qe;
 				}else if(dist[ny][nx]==-1 && (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map))
 						&& (dist[y][x]+2)/2<dogDist[ny][nx]){
 					ay = ny;
 					ax = nx;
-					lastMap = smap;
-					if(get(ny, nx, smap)){
-						clear(ny, nx, lastMap);
-						set(nny, nnx, lastMap);
-					}
+//					lastMap = smap;
+//					if(get(ny, nx, smap)){
+//						clear(ny, nx, lastMap);
+//						set(nny, nnx, lastMap);
+//					}
 					bfr[ny][nx] = 3-i;
 					dist[ny][nx] = dist[y][x]+1;
 					target[pid] = xy2idxItem.get(ny*W+nx);
