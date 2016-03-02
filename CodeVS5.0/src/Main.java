@@ -3,6 +3,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashMap;
 
 public class Main {
 	public static final void main(String args[]) {
@@ -67,6 +68,7 @@ public class Main {
 	final static int SK_COPY_EN = 6;
 	final static int SK_ATTACK = 7;
 	
+	HashMap<Integer, Integer> xy2idxItem = new HashMap<>();
 	int[][] itemDist = new int[H][W];
 	int[] item = new int[20];
 	int[] subitem = new int[20];
@@ -76,6 +78,8 @@ public class Main {
 	int dogs;
 	
 	int[] pos = new int[2];
+	int[] target = new int[2];
+	int[] targetDist = new int[2];
 	int[] subpos = new int[2];
 	
 	void setStone(int y, int x, int[] s){s[y*W+x] |= mss;}
@@ -145,8 +149,10 @@ public class Main {
 			// item
 			n = sc.nextInt();
 			items = n;
+			xy2idxItem.clear();
 			for (int i = 0; i < n; ++i) {
 				int row = sc.nextInt(), col = sc.nextInt();
+				xy2idxItem.put(row*W+col, i);
 				setItem(row, col, map);
 				addItem(row, col, i);
 			}
@@ -359,7 +365,8 @@ public class Main {
 		if(res==null){
 			return walkEachSimple(pid);
 		}
-		else return res;
+		removeFromItemDist(target[pid]);
+		return res;
 	}
 	
 	BitSet[] qbs = new BitSet[H*W];
@@ -426,6 +433,8 @@ public class Main {
 					}
 					bfr[ny][nx] = 3-i;
 					dist[ny][nx] = dist[y][x]+1;
+					target[pid] = xy2idxItem.get(ny*W+nx);
+					targetDist[pid] = dist[ny][nx];
 					break out;
 				}
 			}
@@ -554,6 +563,10 @@ public class Main {
 		return dogDist[y][x]==1;
 	}
 	
+	void removeFromItemDist(int idx){
+		item[idx] = -1;
+		bfsItem(itemDist, item, items);
+	}
 	void removeFromItemDist(int y, int x){
 		int idx = y*W+x;
 		for(int i=0; i<items; i++){
