@@ -217,7 +217,7 @@ public class Main {
 		int stone = stoneAttack();
 		if(stone != -1){
 			return SK_STONE_EN+" "+(stone/W)+" "+(stone%W);
-		}else if(nesc != -1 && eSkillUse[SK_COPY_ME]>0 && ePow>eSkillUse[SK_COPY_ME]){
+		}else if(nesc != -1 && eSkillUse[SK_COPY_ME]>4 && ePow>eSkillUse[SK_COPY_ME]){
 			return SK_COPY_EN+" "+(epos[nesc]/W)+" "+(epos[nesc]%W);
 		}
 		return null;
@@ -470,7 +470,8 @@ public class Main {
 	int[][] sdist = new int[H][W];
 	Queue<Integer> qu = new PriorityQueue<>();
 	BitSet dogMap = new BitSet(H*W);
-	void simulateDogs(int[] pos, int[] map, int dogs, int[] dogList){
+	void simulateDogs(int[] pos, int[] map, int dogs
+			, int[] dogList, HashMap<Integer, Integer> id2idx){
 		bfsPos(sdist, pos, pos.length);
 		// TODO
 		dogMap.clear();
@@ -483,9 +484,19 @@ public class Main {
 			dogMap.set(dogList[i]);
 		}
 		while(!qu.isEmpty()){
-			int p = qu.poll();
+			final int idx = id2idx.get(qu.poll()&msd);
+			final int y = dogList[idx]/W;
+			final int x = dogList[idx]%W;
 			for(int i=0; i<4; i++){
-				
+				final int ny = y+dy[i];
+				final int nx = x+dx[i];
+				if(!isFloor(ny, nx, map) 
+						|| dogMap.get(ny*W+nx)
+						|| sdist[ny][nx]>=sdist[y][x])
+					continue;
+				dogMap.clear(y*W+x);
+				dogMap.set(ny*W+nx);
+				break;
 			}
 		}
 	}
