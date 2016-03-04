@@ -297,6 +297,7 @@ public class Main {
 //			}
 		}else modeEscape = false;
 		if(p[0]==null || p[1]==null){
+			resetBase();
 			int[] pos = getThunderChoice();
 			int bestIdx = -1;
 			for(int i=0; i<pos.length; i++){
@@ -342,6 +343,7 @@ public class Main {
 	Command[] doCopyCommand(){
 		Command[] p = new Command[2];
 		// 分身の術
+		resetBase();
 		int[] choice = getCopyChoice();
 		int bestIdx = -1;
 		for(int i=0; i<choice.length; i++){
@@ -352,7 +354,9 @@ public class Main {
 			initCopying(y, x);
 			Command[] tmp = new Command[2];
 			for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, true, modeEscape);
-			if(tmp[0]==null || tmp[1]==null) continue;
+			if(tmp[0]==null || tmp[1]==null
+					|| tmp[0].moveStone|tmp[1].moveStone
+					&& !checkSafe(tmp, choice[i])) continue;
 			if(p[0]==null||p[1]==null
 					|| Math.min(p[0].point, p[1].point)<Math.min(tmp[0].point, tmp[1].point)){
 				p = tmp.clone();
@@ -375,7 +379,7 @@ public class Main {
 				}
 				if(tmp[0]==null || tmp[1]==null
 						|| tmp[0].moveStone|tmp[1].moveStone
-							&& checkSafe(tmp, choice[i])) continue;
+							&& !checkSafe(tmp, choice[i])) continue;
 				if(p[0]==null||p[1]==null
 						|| Math.min(p[0].point, p[1].point)<Math.min(tmp[0].point, tmp[1].point)){
 					p = tmp.clone();
@@ -406,6 +410,7 @@ public class Main {
 		}
 		BitSet bs = simulateDogs(new int[]{copy}, map, dogs, dog, id2idxDog);
 		for(int i=0; i<2; i++){
+//			if(p[i]/W==cy && p[i]%W==cx) return false;
 			if(bs.get(p[i])){
 				System.err.println("Not safe move");
 				return false;
@@ -628,7 +633,7 @@ public class Main {
 				
 			}
 		}
-		if(last && cost[SK_ATTACK]<=pow && (bm1==4 && dogCount>0 || dogCount+stoneCount==4 && dogCount>1)){
+		if(last && cost[SK_ATTACK]<=10 && cost[SK_ATTACK]<=pow && dogCount>4){
 			setSkill = "7 "+pid;
 			for(int i=0; i<8; i++){
 				removeDogFromTable(y+dy8[i], x+dx8[i], map);
@@ -636,6 +641,21 @@ public class Main {
 			bfsDog(dogDist, dog, dogs, map);
 			Command res = searchNearItem(itemDist, item, items, 1, pid, false, true);
 			if(res != null) return res;
+		}else if(last && cost[SK_COPY_ME]<=pow){
+			int max = 0;
+			int my = 0;
+			int mx = 0;
+			bfsPos(sdist, basepos, 2);
+			for(int i=0; i<H; i++){
+				for(int j=0; j<W; j++){
+					if(sdist[i][j]!=inf && sdist[i][j]>max){
+						max = sdist[i][j];
+						my = i;
+						mx = j;
+					}
+				}
+			}
+			setSkill = SK_COPY_ME+" "+my+" "+mx;
 		}
 		return new Command(bm1,bm2);
 	}
@@ -973,6 +993,7 @@ public class Main {
 				if(isStone(ny, nx, map)){
 					removeStone(ny, nx, map);
 					setStone(ny+dy[dir[1]], nx+dx[dir[1]], map);
+					moveStone = true;
 				}
 				setNinja(ny, nx, pid, map, pos);
 				if(oldDst<=2) removeFromItemDist(oay, oax, copy);
@@ -1007,6 +1028,16 @@ public class Main {
 	
 	boolean nextToDog(int pos){
 		return dogDist[pos/W][pos%W]==1;
+	}
+	
+	void dump(BitSet dog){
+		for(int i=0; i<H; i++){
+			for(int j=0; j<W; j++){
+				System.err.print(dog.get(i*W+j)?1:0);
+			}
+			System.err.println();
+		}
+		System.err.println();
 	}
 	
 	void removeFromItemDist(int idx, boolean copy){
