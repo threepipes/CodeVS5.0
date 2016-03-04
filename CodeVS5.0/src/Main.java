@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Queue;
@@ -220,7 +221,7 @@ public class Main {
 			}
 		}
 		System.err.println("turn:"+turn);
-		if(turn==101){
+		if(turn==37){
 			System.err.println("stop");
 		}
 		turn++;
@@ -288,20 +289,21 @@ public class Main {
 		Command[] p = new Command[2];
 		for(int i=0; i<2; i++)
 			p[i] = searchItemSimple(i, false, false);
-		if(p[0]==null || p[1]==null){
-			
-		}
 		if(checkDoCopy(p)){
-			p[0] = p[1] = null;
-			// 分身の術
-			int[] choice = getCopyChoice();
+			p = doCopyCommand();
+//			if(!modeEscape && (p[0]==null || p[1]==null)){
+//				modeEscape = true;
+//				p = doCopyCommand();
+//			}
+		}else modeEscape = false;
+		if(p[0]==null || p[1]==null){
+			int[] pos = getThunderChoice();
 			int bestIdx = -1;
-			for(int i=0; i<choice.length; i++){
-				if(choice[i] == -1) continue;
+			for(int i=0; i<pos.length; i++){
+				final int y = pos[i]/W;
+				final int x = pos[i]%W;
 				resetBase();
-				final int y = choice[i]/W;
-				final int x = choice[i]%W;
-				initCopying(y, x);
+				initThunder(y, x);
 				Command[] tmp = new Command[2];
 				for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, true, modeEscape);
 				if(tmp[0]==null || tmp[1]==null) continue;
@@ -310,38 +312,11 @@ public class Main {
 					p = tmp.clone();
 					bestIdx = i;
 				}
-//				
-//				resetBase();
-//				initCopying(y, x);
-//				tmp[0] = tmp[1] = null;
-//				for(int j=0; j<2; j++) walkEachSimple(j, true);
-//				
-			}
-			if(bestIdx>=0){
-				setSkill = SK_COPY_ME+" "+pToStr(choice[bestIdx]);
-			}else{
-				for(int i=0; i<choice.length; i++){
-					if(choice[i] == -1) continue;
-					resetBase();
-					final int y = choice[i]/W;
-					final int x = choice[i]%W;
-					initCopying(y, x);
-					Command[] tmp = new Command[2];
-					for(int j=0; j<2; j++){
-						walkEachSimple(j, true, false);
-						update(j);
-					}
-					if(tmp[0]==null || tmp[1]==null
-							|| tmp[0].moveStone|tmp[1].moveStone
-								&& checkSafe(tmp, choice[i])) continue;
-					if(p[0]==null||p[1]==null
-							|| Math.min(p[0].point, p[1].point)<Math.min(tmp[0].point, tmp[1].point)){
-						p = tmp.clone();
-						bestIdx = i;
-					}
+				if(bestIdx>=0){
+					setSkill = SK_THUND_ME+" "+pToStr(pos[bestIdx]);
 				}
 			}
-		}else modeEscape = false;
+		}
 		String res = "";
 		if(p[0]==null || p[1]==null){
 			modeEscape = true;
@@ -349,17 +324,66 @@ public class Main {
 			order(dog, false);
 			for(int i=0; i<2; i++){
 				p[i] = searchItemSimple(i, false, true);
+				if(p[i] == null) p[i] = walkEachSimple(i, false, true);
 				update(i);
 			}
 			resetBase();
-			if(p[0]==null || p[1]==null)
-				for(int i=0; i<2; i++) res += walkEachSimple(i, false, true)+"\n";
-			else for(int i=0; i<2; i++) res += p[i]+"\n";
+//			if(p[0]==null || p[1]==null)
+//				for(int i=0; i<2; i++) res += walkEachSimple(i, false, true)+"\n";
+//			else 
+			for(int i=0; i<2; i++) res += p[i]+"\n";
 		}else for(int i=0; i<2; i++) res += p[i]+"\n";
 		if(setSkill != null) res = "3\n" + setSkill + "\n" + res;
 		else res = "2\n" + res;
 		System.err.println(res);
 		return res;
+	}
+	
+	Command[] doCopyCommand(){
+		Command[] p = new Command[2];
+		// 分身の術
+		int[] choice = getCopyChoice();
+		int bestIdx = -1;
+		for(int i=0; i<choice.length; i++){
+			if(choice[i] == -1) continue;
+			resetBase();
+			final int y = choice[i]/W;
+			final int x = choice[i]%W;
+			initCopying(y, x);
+			Command[] tmp = new Command[2];
+			for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, true, modeEscape);
+			if(tmp[0]==null || tmp[1]==null) continue;
+			if(p[0]==null||p[1]==null
+					|| Math.min(p[0].point, p[1].point)<Math.min(tmp[0].point, tmp[1].point)){
+				p = tmp.clone();
+				bestIdx = i;
+			}
+		}
+		if(bestIdx>=0){
+			setSkill = SK_COPY_ME+" "+pToStr(choice[bestIdx]);
+		}else{
+			for(int i=0; i<choice.length; i++){
+				if(choice[i] == -1) continue;
+				resetBase();
+				final int y = choice[i]/W;
+				final int x = choice[i]%W;
+				initCopying(y, x);
+				Command[] tmp = new Command[2];
+				for(int j=0; j<2; j++){
+					walkEachSimple(j, true, false);
+					update(j);
+				}
+				if(tmp[0]==null || tmp[1]==null
+						|| tmp[0].moveStone|tmp[1].moveStone
+							&& checkSafe(tmp, choice[i])) continue;
+				if(p[0]==null||p[1]==null
+						|| Math.min(p[0].point, p[1].point)<Math.min(tmp[0].point, tmp[1].point)){
+					p = tmp.clone();
+					bestIdx = i;
+				}
+			}
+		}
+		return p;
 	}
 	
 	// 石を動かした場合に敵の動きが変わるので，simulateDogがあてにならない
@@ -409,7 +433,26 @@ public class Main {
 	// 自陣(tx,ty)に雷を落とした場合の準備
 	void initThunder(int cy, int cx){
 		// 岩の消去
+		removeStone(cy, cx, map);
 		// order()
+		order(dog, false);
+	}
+	
+	int[] getThunderChoice(){
+		HashSet<Integer> res = new HashSet<>();
+		for(int i=0; i<2; i++){
+			final int y = pos[i]/W;
+			final int x = pos[i]%W;
+			for(int d=0; d<4; d++){
+				res.add((y+dy[d])*W+x+dx[d]);
+			}
+		}
+		int[] pos = new int[res.size()];
+		int i=0;
+		for(int p: res){
+			pos[i++] = p;
+		}
+		return pos;
 	}
 	
 	int[] choiceCenterY = {2,   2, H-3, H-3, H/2};
@@ -557,10 +600,10 @@ public class Main {
 		int dogCount = 0;
 		int stoneCount = 0;
 		for(int i=0; i<4; i++){
-			if(!okMove(y, x, i, map) || dogDist[y+dy[i]][x+dx[i]] == 0) continue;
 			final int ny = y+dy[i];
 			final int nx = x+dx[i];
 			if(isDog(ny, nx, defaultDogMap)) dogCount++;
+			if(!okMove(y, x, i, map) || dogDist[y+dy[i]][x+dx[i]] == 0) continue;
 			else if(isStone(ny, nx, map)) stoneCount++;
 			if(isItem(ny, nx, map)) isItem = true;
 			for(int j=0; j<5; j++){
