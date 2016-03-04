@@ -32,7 +32,7 @@ public class Main {
 		}
 	}
 
-	int turn = 0;
+	int turn = -1;
 	final static int H = 17;
 	final static int W = 14;
 	int[] map = new int[H*W];
@@ -125,6 +125,7 @@ public class Main {
 	
 	String setSkill;
 	String think(ContestScanner sc) throws IOException {
+		turn++;
 		long millitime = sc.nextLong();
 		setSkill = null;
 		sc.nextInt();
@@ -190,6 +191,7 @@ public class Main {
 			}
 		}
 		{
+			oldEPow = ePow;
 			ePow = sc.nextInt();
 			int map_row = sc.nextInt(), map_col = sc.nextInt();
 			boolean map[][] = new boolean[map_row][map_col];
@@ -216,15 +218,24 @@ public class Main {
 			for (int i = 0, n = sc.nextInt(); i < n; ++i) {
 				int row = sc.nextInt(), col = sc.nextInt();
 			}
+			boolean used = false;
 			for (int i = 0; i < skills; ++i) {
-				eSkillUse[i] = sc.nextInt();
+				int use = sc.nextInt();
+				if(use>eSkillUse[i]) used = true;
+				eSkillUse[i] = use;
+			}
+			if(!used){
+				// 使用しなかった
+				if(useVirtualStone!=turn-1 && oldEPow>=cost[SK_STONE_EN]){
+					virtualStone = false;
+					System.err.println("Set not using virtual stone");
+				}
 			}
 		}
 		System.err.println("turn:"+turn);
 		if(turn==37){
 			System.err.println("stop");
 		}
-		turn++;
 		bfsDog(eDogDist, eDogList, eDogs, emap);
 		return createCommand();
 	}
@@ -458,7 +469,10 @@ public class Main {
 			final int y = pos[i]/W;
 			final int x = pos[i]%W;
 			for(int d=0; d<4; d++){
-				res.add((y+dy[d])*W+x+dx[d]);
+				final int ny = y+dy[d];
+				final int nx = x+dx[d];
+				if(isStone(ny, nx, map) && (!virtualStone || ny*W+x != vStone))
+					res.add((y+dy[d])*W+x+dx[d]);
 			}
 		}
 		int[] pos = new int[res.size()];
@@ -510,7 +524,7 @@ public class Main {
 			useVirtualStone = turn;
 			basemap[vStone] |= mss;
 			map[vStone] = submap[vStone] = basemap[vStone];
-//			setStone(vStone/W, vStone%W, map);
+			System.err.println("put virtual stone");
 			return null;
 			// このターン攻撃は無し
 		}
@@ -528,7 +542,7 @@ public class Main {
 	int[][] eDogDist = new int[H][W];
 	int[] eDogList = new int[H*W];
 	BitSet eDogMap = new BitSet(H*W);
-	int eDogs, ePow;
+	int eDogs, ePow, oldEPow;
 	int[] emap = new int[H*W];
 	int[] epos = new int[2];
 	int nesc; // 逃げられない方の忍者
