@@ -219,17 +219,29 @@ public class Main {
 				int row = sc.nextInt(), col = sc.nextInt();
 			}
 			boolean used = false;
+			boolean[] usedSkill = new boolean[skills];
 			for (int i = 0; i < skills; ++i) {
 				int use = sc.nextInt();
-				if(use>eSkillUse[i]) used = true;
+				if(use>eSkillUse[i]){
+					usedSkill[i] = true;
+					used = true;
+				}
 				eSkillUse[i] = use;
 			}
 			if(!used){
 				// 使用しなかった
-				if(useVirtualStone!=turn-1 && oldEPow>=cost[SK_STONE_EN]){
+				if(useVirtualStone==turn-1 && oldEPow>=cost[SK_STONE_EN]){
 					virtualStone = false;
-					System.err.println("Set not using virtual stone");
+					System.err.println("Set enable to use virtual stone. turn: "+turn);
 				}
+			}else{
+				if(useVirtualStone==turn-1 && usedSkill[SK_STONE_EN] && isStone(vStone/W, vStone%W, this.map)){
+					// 座標判断は簡易(石を動かして現状の場合もある)
+					virtualThunder = true;
+				}
+			}
+			if(eSkillUse[SK_STONE_EN]>0){
+				virtualStone = true;
 			}
 		}
 		System.err.println("turn:"+turn);
@@ -295,6 +307,7 @@ public class Main {
 	boolean modeEscape = false;
 	// 仮想石置きをするかどうか(攻撃されなかったらfalse)
 	boolean virtualStone = true;
+	boolean virtualThunder = false; // 仮想石置きに対して雷撃するか(石置き予想が一致したときオンにする)
 	int useVirtualStone = -1; // 仮想石置き使用ターン
 	// 単純攻撃をするかどうか(回避されたらfalse)
 	boolean fastStone = true;
@@ -471,7 +484,7 @@ public class Main {
 			for(int d=0; d<4; d++){
 				final int ny = y+dy[d];
 				final int nx = x+dx[d];
-				if(isStone(ny, nx, map) && (!virtualStone || ny*W+x != vStone))
+				if(isStone(ny, nx, map) && (!virtualStone || virtualThunder || ny*W+x != vStone))
 					res.add((y+dy[d])*W+x+dx[d]);
 			}
 		}
@@ -546,53 +559,53 @@ public class Main {
 	int[] emap = new int[H*W];
 	int[] epos = new int[2];
 	int nesc; // 逃げられない方の忍者
-	int stoneAttack(int[] epos, int[][] eDogDist, int[] emap, BitSet eDogMap, int pow){
+	int stoneAttack(int[] pos, int[][] dogDist, int[] map, BitSet dogMap, int pow){
 		if(cost[SK_STONE_EN]>pow) return -1;
 		nesc = -1;
 		for(int pid=0; pid<2; pid++){
-			final int y = epos[pid]/W;
-			final int x = epos[pid]%W;
-			if(!escapable(y, x, emap) && eDogDist[y][x]==1){
+			final int y = pos[pid]/W;
+			final int x = pos[pid]%W;
+			if(!escapable(y, x, map, dogDist) && dogDist[y][x]==1){
 				nesc = pid;
 				continue;
 			}
 			int count = 0;
-			if(eDogDist[y][x]>2) continue;
+			if(dogDist[y][x]>2) continue;
 			for(int i=0; i<8; i++){
 				final int ny = y+dy8[i];
 				final int nx = x+dx8[i];
-				if(isStone(ny, nx, emap) || isWall(ny, nx, emap) || isDog(ny, nx, eDogMap))
+				if(isStone(ny, nx, map) || isWall(ny, nx, map) || isDog(ny, nx, dogMap))
 					count++;
 			}
 			if(count<4) continue;
 			for(int sy=y-2; sy<=y+2; sy++){
 				for(int sx=x-2; sx<=x+2; sx++){
 					if(sy<1||sy>=H-1||sx<1||sx>=W-1||sy==y && sx==x
-							|| isStone(sy, sx, emap)
-							|| isDog(sy, sx, eDogMap)
-							|| isNinja(sy, sx, emap))
+							|| isStone(sy, sx, map)
+							|| isDog(sy, sx, dogMap)
+							|| isNinja(sy, sx, map))
 						continue;
-					setStone(sy, sx, emap);
-					if(!escapable(y, x, emap)){
+					setStone(sy, sx, map);
+					if(!escapable(y, x, map, dogDist)){
 						return sy*W+sx;
 					}
-					removeStone(sy, sx, emap);
+					removeStone(sy, sx, map);
 				}
 			}
 		}
 		return -1;
 	}
 	
-	boolean escapable(int y, int x, int[] map){
+	boolean escapable(int y, int x, int[] map, int[][] dogDist){
 		for(int i=0; i<4; i++){
-			if(!okMove(y, x, i, map) || eDogDist[y+dy[i]][x+dx[i]] == 0) continue;
+			if(!okMove(y, x, i, map) || dogDist[y+dy[i]][x+dx[i]] == 0) continue;
 			final int ny = y+dy[i];
 			final int nx = x+dx[i];
 			for(int j=0; j<5; j++){
 				if(y==ny&&x==nx) continue;
 				final int nnx = nx+dx[j];
 				final int nny = ny+dy[j];
-				if(!okMove(ny, nx, j, map) || eDogDist[nny][nnx] <= 1
+				if(!okMove(ny, nx, j, map) || dogDist[nny][nnx] <= 1
 						|| nny==y && nnx==x)
 					continue;
 				return true;
@@ -949,7 +962,7 @@ public class Main {
 				if(dist[ny][nx]==inf && !isWall(ny, nx, map)
 						// 岩がないか、押せる岩
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
-								&& ((dist[y][x]+1)>2 || dogDist[nny][nnx]!=0 && !isNinja(nny, nnx, map)))
+								&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map)))
 						&& (((dist[y][x]+1)/2<dogDist[ny][nx])
 								|| copy&&esc&&(dist[y][x]+1!=2||dogDist[ny][nx]>0)
 								|| esc&&dogDist[ny][nx]>0)){
@@ -971,7 +984,7 @@ public class Main {
 					}
 					++qe;
 				}else if(dist[ny][nx]==-1 && (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
-						&& ((dist[y][x]+1)>2 || dogDist[nny][nnx]!=0 && !isNinja(nny, nnx, map)))
+						&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map)))
 						&& ((dist[y][x]+2)/2<dogDist[ny][nx]  || copy&&esc&&dogDist[ny][nx]>0)){
 					ay = ny;
 					ax = nx;
