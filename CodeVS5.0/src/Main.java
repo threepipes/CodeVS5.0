@@ -220,7 +220,7 @@ public class Main {
 			}
 		}
 		System.err.println("turn:"+turn);
-		if(turn==42){
+		if(turn==101){
 			System.err.println("stop");
 		}
 		turn++;
@@ -233,6 +233,7 @@ public class Main {
 		List<Integer> list = new ArrayList<>();
 		int len;
 		int point;
+		boolean moveStone = false;
 		Command(int[] d){
 			for(int i=0; i<d.length; i++){
 				list.add(d[i]);
@@ -270,6 +271,7 @@ public class Main {
 			com += c.com;
 			len += c.len;
 			point = c.point;
+			moveStone |= c.moveStone;
 		}
 		@Override
 		public String toString() {
@@ -329,7 +331,9 @@ public class Main {
 						walkEachSimple(j, true, false);
 						update(j);
 					}
-					if(tmp[0]==null || tmp[1]==null) continue;
+					if(tmp[0]==null || tmp[1]==null
+							|| tmp[0].moveStone|tmp[1].moveStone
+								&& checkSafe(tmp, choice[i])) continue;
 					if(p[0]==null||p[1]==null
 							|| Math.min(p[0].point, p[1].point)<Math.min(tmp[0].point, tmp[1].point)){
 						p = tmp.clone();
@@ -356,6 +360,34 @@ public class Main {
 		else res = "2\n" + res;
 		System.err.println(res);
 		return res;
+	}
+	
+	// 石を動かした場合に敵の動きが変わるので，simulateDogがあてにならない
+	// 本当に生き残れるかチェックする
+	boolean checkSafe(Command[] com, int copy){
+		resetBase();
+		int[] p = new int[2];
+		for(int i=0; i<2; i++){
+			int y = pos[i]/W;
+			int x = pos[i]%W;
+			for(int d: com[i].list){
+				y += dy[d];
+				x += dx[d];
+				if(isStone(y, x, map)){
+					removeStone(y, x, map);
+					setStone(y+dy[d], x+dx[d], map);
+				}
+			}
+			p[i] = y*W+x;
+		}
+		BitSet bs = simulateDogs(new int[]{copy}, map, dogs, dog, id2idxDog);
+		for(int i=0; i<2; i++){
+			if(bs.get(p[i])){
+				System.err.println("Not safe move");
+				return false;
+			}
+		}
+		return true;
 	}
 	
 	boolean checkDoCopy(Command[] p){
@@ -876,6 +908,7 @@ public class Main {
 		}
 //		String res = "";
 		Command res = null;
+		boolean moveStone = false;
 		if(dir[1]!=-1){
 			removeNinja(ay, ax, pid, map);
 			// apply stone to map
@@ -884,6 +917,7 @@ public class Main {
 			if(isStone(ny, nx, map)){
 				removeStone(ny, nx, map);
 				setStone(ny+dy[dir[0]], nx+dx[dir[0]], map);
+				moveStone = true;
 			}
 			if(dep==0){
 				setNinja(ny, nx, pid, map, pos);
@@ -912,6 +946,7 @@ public class Main {
 			if(isStone(ny, nx, map)){
 				removeStone(ny, nx, map);
 				setStone(ny+dy[dir[0]], nx+dx[dir[0]], map);
+				moveStone = true;
 			}
 			removeFromItemDist(oay, oax, copy);
 			res = new Command(dir[0]);
@@ -923,6 +958,7 @@ public class Main {
 			}
 		}
 		if(!copy && nextToDog(res.apply(py, px))) return null;
+		res.moveStone |= moveStone;
 		return res;
 	}
 	
