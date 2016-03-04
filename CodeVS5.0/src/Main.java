@@ -220,7 +220,7 @@ public class Main {
 			}
 		}
 		System.err.println("turn:"+turn);
-		if(turn==19){
+		if(turn==42){
 			System.err.println("stop");
 		}
 		turn++;
@@ -286,7 +286,7 @@ public class Main {
 		Command[] p = new Command[2];
 		for(int i=0; i<2; i++)
 			p[i] = searchItemSimple(i, false, false);
-		if(p[0]==null && p[1]==null){
+		if(p[0]==null || p[1]==null){
 			
 		}
 		if(checkDoCopy(p)){
@@ -301,7 +301,7 @@ public class Main {
 				final int x = choice[i]%W;
 				initCopying(y, x);
 				Command[] tmp = new Command[2];
-				for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, true, true);
+				for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, true, modeEscape);
 				if(tmp[0]==null || tmp[1]==null) continue;
 				if(p[0]==null||p[1]==null
 						|| Math.min(p[0].point, p[1].point)<Math.min(tmp[0].point, tmp[1].point)){
@@ -326,7 +326,7 @@ public class Main {
 					initCopying(y, x);
 					Command[] tmp = new Command[2];
 					for(int j=0; j<2; j++){
-						walkEachSimple(j, true);
+						walkEachSimple(j, true, false);
 						update(j);
 					}
 					if(tmp[0]==null || tmp[1]==null) continue;
@@ -337,13 +337,19 @@ public class Main {
 					}
 				}
 			}
-		}
+		}else modeEscape = false;
 		String res = "";
 		if(p[0]==null || p[1]==null){
+			modeEscape = true;
 			resetBase();
-			for(int i=0; i<2; i++) p[i] = searchItemSimple(i, false, true);
+			order(dog, false);
+			for(int i=0; i<2; i++){
+				p[i] = searchItemSimple(i, false, true);
+				update(i);
+			}
+			resetBase();
 			if(p[0]==null || p[1]==null)
-				for(int i=0; i<2; i++) res += walkEachSimple(i, false)+"\n";
+				for(int i=0; i<2; i++) res += walkEachSimple(i, false, true)+"\n";
 			else for(int i=0; i<2; i++) res += p[i]+"\n";
 		}else for(int i=0; i<2; i++) res += p[i]+"\n";
 		if(setSkill != null) res = "3\n" + setSkill + "\n" + res;
@@ -509,7 +515,7 @@ public class Main {
 		for(int i=0; i<items; i++) item[i] = baseitem[i];
 	}
 	
-	Command walkEachSimple(int pid, boolean copy){
+	Command walkEachSimple(int pid, boolean copy, boolean last){
 		int bestItem = inf;
 		int bestDog = 0;
 		int bm1 = 4, bm2 = 4, bm3 = -1;
@@ -547,7 +553,7 @@ public class Main {
 				
 			}
 		}
-		if(cost[SK_ATTACK]<=pow && (bm1==4 || dogCount+stoneCount==4 && dogCount>1)){
+		if(last && cost[SK_ATTACK]<=pow && (bm1==4 && dogCount>0 || dogCount+stoneCount==4 && dogCount>1)){
 			setSkill = "7 "+pid;
 			for(int i=0; i<8; i++){
 				removeDogFromTable(y+dy8[i], x+dx8[i], map);
@@ -637,13 +643,16 @@ public class Main {
 			final int y = list[i]/W;
 			final int x = list[i]%W;
 			if(isStone(y, x, map)) continue;
-			qy[i] = y;
-			qx[i] = x;
+			qy[qe] = y;
+			qx[qe] = x;
 			dist[y][x] = 0;
 			qe++;
 		}
 		while (qi < qe) {
 			int y = qy[qi], x = qx[qi];
+			if(dist[y][x]>=inf){
+				System.err.println("INF");
+			}
 			++qi;
 			for (int i = 0; i < 4; ++i) {
 				int ny = y+dy[i];
@@ -694,7 +703,6 @@ public class Main {
 	BitSet simulateDogs(int[] pos, int[] map, int dogs
 			, int[] dogList, HashMap<Integer, Integer> id2idx){
 		bfsPos(sdist, pos, pos.length);
-		// TODO
 		dogMap.clear();
 		qu.clear();
 		for(int i=0; i<dogs; i++){
@@ -705,6 +713,9 @@ public class Main {
 			dogMap.set(dogList[i]);
 		}
 		while(!qu.isEmpty()){
+			if(id2idx.get(qu.peek()&msd)==null){
+				System.err.println("Error: id2idx null");
+			}
 			final int idx = id2idx.get(qu.poll()&msd);
 			final int y = dogList[idx]/W;
 			final int x = dogList[idx]%W;
@@ -807,7 +818,7 @@ public class Main {
 						// 岩がないか、押せる岩
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
 								&& ((dist[y][x]+1)>2 || dogDist[nny][nnx]!=0 && !isNinja(nny, nnx, map)))
-						&& (dist[y][x]+1)/2<dogDist[ny][nx]){
+						&& (((dist[y][x]+1)/2<dogDist[ny][nx]) || copy&&esc&&dogDist[ny][nx]>0)){
 					dist[ny][nx] = dist[y][x]+1;
 					bfr[ny][nx] = 3-i;
 					qy[qe] = ny;
@@ -826,7 +837,7 @@ public class Main {
 					}
 					++qe;
 				}else if(dist[ny][nx]==-1 && (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map))
-						&& (dist[y][x]+2)/2<dogDist[ny][nx]){
+						&& ((dist[y][x]+2)/2<dogDist[ny][nx]  || copy&&esc&&dogDist[ny][nx]>0)){
 					ay = ny;
 					ax = nx;
 //					lastMap = smap;
