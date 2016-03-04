@@ -280,12 +280,18 @@ public class Main {
 		}
 	}
 	
-	boolean modeEscape = false;
-	// TODO やりかけ
 	// 脱出モードに入ったときに、犬配置を無視したアイテム距離で行動すること
+	boolean modeEscape = false;
+	// 仮想石置きをするかどうか(攻撃されなかったらfalse)
+	boolean virtualStone = true;
+	int useVirtualStone = -1; // 仮想石置き使用ターン
+	// 単純攻撃をするかどうか(回避されたらfalse)
+	boolean fastStone = true;
+	boolean fastCopy = true;
+	
 	String createCommand(){
 		order(dog, false);
-		setSkill = useAttackSkill();
+		setSkill = useFastSkill();
 		Command[] p = new Command[2];
 		for(int i=0; i<2; i++)
 			p[i] = searchItemSimple(i, false, false);
@@ -306,7 +312,7 @@ public class Main {
 				resetBase();
 				initThunder(y, x);
 				Command[] tmp = new Command[2];
-				for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, true, modeEscape);
+				for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, false, modeEscape);
 				if(tmp[0]==null || tmp[1]==null) continue;
 				if(p[0]==null||p[1]==null
 						|| Math.min(p[0].point, p[1].point)<Math.min(tmp[0].point, tmp[1].point)){
@@ -325,7 +331,10 @@ public class Main {
 			order(dog, false);
 			for(int i=0; i<2; i++){
 				p[i] = searchItemSimple(i, false, true);
-				if(p[i] == null) p[i] = walkEachSimple(i, false, true);
+				if(p[i] == null){
+					reset(i);
+					p[i] = walkEachSimple(i, false, true);
+				}
 				update(i);
 			}
 			resetBase();
@@ -494,8 +503,19 @@ public class Main {
 		order(getTmpDogList(dogmap), true);
 	}
 	
-	String useAttackSkill(){
-		int stone = stoneAttack();
+	int vStone;
+	String useFastSkill(){
+		vStone = stoneAttack(pos, dogDist, map, defaultDogMap, ePow);
+		if(vStone != -1 && virtualStone){
+			useVirtualStone = turn;
+			basemap[vStone] |= mss;
+			map[vStone] = submap[vStone] = basemap[vStone];
+//			setStone(vStone/W, vStone%W, map);
+			return null;
+			// このターン攻撃は無し
+		}
+		
+		int stone = stoneAttack(epos, eDogDist, emap, eDogMap, pow);
 		if(stone != -1){
 			return SK_STONE_EN+" "+(stone/W)+" "+(stone%W);
 		}else if(nesc != -1 && eSkillUse[SK_COPY_ME]>4 && ePow>eSkillUse[SK_COPY_ME]){
@@ -511,8 +531,8 @@ public class Main {
 	int eDogs, ePow;
 	int[] emap = new int[H*W];
 	int[] epos = new int[2];
-	int nesc;
-	int stoneAttack(){
+	int nesc; // 逃げられない方の忍者
+	int stoneAttack(int[] epos, int[][] eDogDist, int[] emap, BitSet eDogMap, int pow){
 		if(cost[SK_STONE_EN]>pow) return -1;
 		nesc = -1;
 		for(int pid=0; pid<2; pid++){
@@ -589,10 +609,10 @@ public class Main {
 	
 	void resetBase(){
 		// ターン初期状態に戻す
-		for(int i=0; i<map.length; i++) map[i] = basemap[i];
+		for(int i=0; i<map.length; i++) submap[i] = map[i] = basemap[i];
 		mapToDogBS(map, defaultDogMap);
-		for(int i=0; i<2; i++) pos[i] = basepos[i];
-		for(int i=0; i<items; i++) item[i] = baseitem[i];
+		for(int i=0; i<2; i++) subpos[i] = pos[i] = basepos[i];
+		for(int i=0; i<items; i++) subitem[i] = item[i] = baseitem[i];
 	}
 	
 	Command walkEachSimple(int pid, boolean copy, boolean last){
@@ -608,7 +628,7 @@ public class Main {
 			final int ny = y+dy[i];
 			final int nx = x+dx[i];
 			if(isDog(ny, nx, defaultDogMap)) dogCount++;
-			if(!okMove(y, x, i, map) || dogDist[y+dy[i]][x+dx[i]] == 0) continue;
+			if(!okMove(y, x, i, map) || !copy&&dogDist[ny][nx] == 0) continue;
 			else if(isStone(ny, nx, map)) stoneCount++;
 			if(isItem(ny, nx, map)) isItem = true;
 			for(int j=0; j<5; j++){
@@ -656,6 +676,7 @@ public class Main {
 				}
 			}
 			setSkill = SK_COPY_ME+" "+my+" "+mx;
+			return walkEachSimple(pid, true, false);
 		}
 		return new Command(bm1,bm2);
 	}
@@ -836,8 +857,10 @@ public class Main {
 //			reset(pid);
 //			return walkEachSimple(pid);
 //		}
-		update(pid);
-		removeFromItemDist(target[pid], copy);
+		if(res != null){
+			update(pid);
+			removeFromItemDist(target[pid], copy);
+		}
 		return res;
 	}
 	
@@ -913,7 +936,9 @@ public class Main {
 						// 岩がないか、押せる岩
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
 								&& ((dist[y][x]+1)>2 || dogDist[nny][nnx]!=0 && !isNinja(nny, nnx, map)))
-						&& (((dist[y][x]+1)/2<dogDist[ny][nx]) || copy&&esc&&dogDist[ny][nx]>0)){
+						&& (((dist[y][x]+1)/2<dogDist[ny][nx])
+								|| copy&&esc&&(dist[y][x]+1!=2||dogDist[ny][nx]>0)
+								|| esc&&dogDist[ny][nx]>0)){
 					dist[ny][nx] = dist[y][x]+1;
 					bfr[ny][nx] = 3-i;
 					qy[qe] = ny;
@@ -924,14 +949,15 @@ public class Main {
 						set(nny, nnx, newbs);
 					}
 					qbs[qe] = newbs;
-					if(point[ny][nx]+dist[ny][nx]>best && (Math.abs(ny-py)+Math.abs(nx-px)>=5)){
+					if(point[ny][nx]+dist[ny][nx]>best && (Math.abs(ny-py)+Math.abs(nx-px)>=5) && dogDist[ny][nx]>0){
 						best = point[ny][nx]+dist[ny][nx]+best;
 						ay = ny;
 						ax = nx;
 //						lastMap = newbs;
 					}
 					++qe;
-				}else if(dist[ny][nx]==-1 && (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map))
+				}else if(dist[ny][nx]==-1 && (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
+						&& ((dist[y][x]+1)>2 || dogDist[nny][nnx]!=0 && !isNinja(nny, nnx, map)))
 						&& ((dist[y][x]+2)/2<dogDist[ny][nx]  || copy&&esc&&dogDist[ny][nx]>0)){
 					ay = ny;
 					ax = nx;
