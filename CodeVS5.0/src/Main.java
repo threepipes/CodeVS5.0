@@ -105,6 +105,7 @@ public class Main {
 	boolean isStoneMove(int y, int x, int[] s){return (s[y*W+x]&msEmpty)==0;}
 	boolean isNinja(int y, int x, int[] s){return (s[y*W+x]&(msn1|msn2))>0;}
 	boolean isItem(int y, int x, int[] s){return (s[y*W+x]&msi)>0;}
+	boolean isDogInMap(int y, int x, int[] s){return (s[y*W+x]&msd)>0;}
 	boolean isDog(int y, int x, BitSet bs){return bs.get(y*W+x);}
 	
 	void removeStone(int y, int x, int[] s){s[y*W+x] &= ~mss;}
@@ -304,7 +305,7 @@ public class Main {
 	}
 	
 	// 脱出モードに入ったときに、犬配置を無視したアイテム距離で行動すること
-	boolean modeEscape = false;
+	boolean[] modeEscape = {false, false};
 	// 仮想石置きをするかどうか(攻撃されなかったらfalse)
 	boolean virtualStone = true;
 	boolean virtualThunder = false; // 仮想石置きに対して雷撃するか(石置き予想が一致したときオンにする)
@@ -321,11 +322,13 @@ public class Main {
 			p[i] = searchItemSimple(i, false, false);
 		if(checkDoCopy(p)){
 			p = doCopyCommand();
-//			if(!modeEscape && (p[0]==null || p[1]==null)){
-//				modeEscape = true;
-//				p = doCopyCommand();
-//			}
-		}else modeEscape = false;
+			if(!modeEscape[0] && p[0]==null || p[1]==null && !modeEscape[1]){
+				for(int i=0; i<2; i++) modeEscape[i] |= p[i]==null;
+				p = doCopyCommand();
+			}
+		}else{
+			for(int i=0; i<2; i++) modeEscape[i] = p[i]==null;
+		}
 		if(p[0]==null || p[1]==null){
 			resetBase();
 			int[] pos = getThunderChoice();
@@ -336,7 +339,7 @@ public class Main {
 				resetBase();
 				initThunder(y, x);
 				Command[] tmp = new Command[2];
-				for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, false, modeEscape);
+				for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, false, modeEscape[j]);
 				if(tmp[0]==null || tmp[1]==null) continue;
 				if(p[0]==null||p[1]==null
 						|| Math.min(p[0].point, p[1].point)<Math.min(tmp[0].point, tmp[1].point)){
@@ -350,7 +353,7 @@ public class Main {
 		}
 		String res = "";
 		if(p[0]==null || p[1]==null){
-			modeEscape = true;
+			for(int i=0; i<2; i++) modeEscape[i] |= p[i]==null;
 			resetBase();
 			order(dog, false);
 			for(int i=0; i<2; i++){
@@ -386,7 +389,8 @@ public class Main {
 			final int x = choice[i]%W;
 			initCopying(y, x);
 			Command[] tmp = new Command[2];
-			for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, true, modeEscape);
+			for(int j=0; j<2; j++)
+				tmp[j] = searchItemSimple(j, true, modeEscape[j]);
 			if(tmp[0]==null || tmp[1]==null
 					|| tmp[0].moveStone|tmp[1].moveStone
 					&& !checkSafe(tmp, choice[i])) continue;
@@ -919,6 +923,7 @@ public class Main {
 	}
 	
 	BitSet[] qbs = new BitSet[H*W];
+	int[] qdc = new int[H*W];
 	int[][] bfr = new int[H][W];
 	Command searchNearItem(int[][] dist, int[] list, int n, int dep, int pid, boolean copy, boolean esc){
 		final int offset = dep==0?1:0;
@@ -950,7 +955,7 @@ public class Main {
 //		BitSet lastMap = null;
 		int best = esc||dogs<20?0:100;
 		out: while (qi < qe) {
-			int y = qy[qi], x = qx[qi];
+			final int y = qy[qi], x = qx[qi];
 			BitSet smap = qbs[qi];
 			++qi;
 			for (int i = 0; i < 4; ++i) {
@@ -962,7 +967,7 @@ public class Main {
 				if(dist[ny][nx]==inf && !isWall(ny, nx, map)
 						// 岩がないか、押せる岩
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
-								&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map)))
+								&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
 						&& (((dist[y][x]+1)/2<dogDist[ny][nx])
 								|| copy&&esc&&(dist[y][x]+1!=2||dogDist[ny][nx]>0)
 								|| esc&&dogDist[ny][nx]>0)){
@@ -984,7 +989,7 @@ public class Main {
 					}
 					++qe;
 				}else if(dist[ny][nx]==-1 && (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
-						&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map)))
+						&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map))) && !isDogInMap(nny, nnx, basemap)
 						&& ((dist[y][x]+2)/2<dogDist[ny][nx]  || copy&&esc&&dogDist[ny][nx]>0)){
 					ay = ny;
 					ax = nx;
