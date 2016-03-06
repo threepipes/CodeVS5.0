@@ -106,6 +106,7 @@ public class Main {
 	boolean isNinja(int y, int x, int[] s){return (s[y*W+x]&(msn1|msn2))>0;}
 	boolean isItem(int y, int x, int[] s){return (s[y*W+x]&msi)>0;}
 	boolean isDog(int y, int x, BitSet bs){return bs.get(y*W+x);}
+	boolean isDogInMap(int y, int x, int[]s){return (s[y*W+x]&msd)>0;}
 	
 	void removeStone(int y, int x, int[] s){s[y*W+x] &= ~mss;}
 	void removeNinja(int y, int x, int id, int[] s){s[y*W+x]&=~(msn1<<id);}
@@ -601,6 +602,12 @@ public class Main {
 			if(!okMove(y, x, i, map) || dogDist[y+dy[i]][x+dx[i]] == 0) continue;
 			final int ny = y+dy[i];
 			final int nx = x+dx[i];
+			boolean moveStone = true;
+			if(isStone(ny, nx, map)){
+				removeStone(ny, nx, map);
+				setStone(ny+dy[i], nx+dx[i], map);
+			}
+			boolean ok = false;
 			for(int j=0; j<5; j++){
 				if(y==ny&&x==nx) continue;
 				final int nnx = nx+dx[j];
@@ -608,8 +615,14 @@ public class Main {
 				if(!okMove(ny, nx, j, map) || dogDist[nny][nnx] <= 1
 						|| nny==y && nnx==x)
 					continue;
-				return true;
+				ok = true;
+				break;
 			}
+			if(moveStone){
+				removeStone(ny+dy[i], nx+dx[i], map);
+				setStone(ny, nx, map);
+			}
+			if(ok) return true;
 		}
 		return false;
 	}
@@ -962,7 +975,7 @@ public class Main {
 				if(dist[ny][nx]==inf && !isWall(ny, nx, map)
 						// 岩がないか、押せる岩
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
-								&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map)))
+								&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
 						&& (((dist[y][x]+1)/2<dogDist[ny][nx])
 								|| copy&&esc&&(dist[y][x]+1!=2||dogDist[ny][nx]>0)
 								|| esc&&dogDist[ny][nx]>0)){
@@ -984,7 +997,7 @@ public class Main {
 					}
 					++qe;
 				}else if(dist[ny][nx]==-1 && (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
-						&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map)))
+						&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map))) && !isDogInMap(nny, nnx, basemap)
 						&& ((dist[y][x]+2)/2<dogDist[ny][nx]  || copy&&esc&&dogDist[ny][nx]>0)){
 					ay = ny;
 					ax = nx;
