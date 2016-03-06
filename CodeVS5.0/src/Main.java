@@ -370,6 +370,7 @@ public class Main {
 //			else 
 			for(int i=0; i<2; i++) res += p[i]+"\n";
 		}else for(int i=0; i<2; i++) res += p[i]+"\n";
+		for(int i=0; i<2; i++) modeEscape[i] &= !checkGetItem(p[i], i);
 		if(setSkill != null) res = "3\n" + setSkill + "\n" + res;
 		else res = "2\n" + res;
 		System.err.println(res);
@@ -425,6 +426,20 @@ public class Main {
 			}
 		}
 		return p;
+	}
+	
+	boolean checkGetItem(Command com, int pid){
+		resetBase();
+		int y = pos[pid]/W;
+		int x = pos[pid]%W;
+		for(int d: com.list){
+			y += dy[d];
+			x += dx[d];
+			if(isItem(y, x, map)){
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	// 石を動かした場合に敵の動きが変わるので，simulateDogがあてにならない
@@ -605,6 +620,12 @@ public class Main {
 			if(!okMove(y, x, i, map) || dogDist[y+dy[i]][x+dx[i]] == 0) continue;
 			final int ny = y+dy[i];
 			final int nx = x+dx[i];
+			boolean moveStone = true;
+			if(isStone(ny, nx, map)){
+				removeStone(ny, nx, map);
+				setStone(ny+dy[i], nx+dx[i], map);
+			}
+			boolean ok = false;
 			for(int j=0; j<5; j++){
 				if(y==ny&&x==nx) continue;
 				final int nnx = nx+dx[j];
@@ -612,8 +633,14 @@ public class Main {
 				if(!okMove(ny, nx, j, map) || dogDist[nny][nnx] <= 1
 						|| nny==y && nnx==x)
 					continue;
-				return true;
+				ok = true;
+				break;
 			}
+			if(moveStone){
+				removeStone(ny+dy[i], nx+dx[i], map);
+				setStone(ny, nx, map);
+			}
+			if(ok) return true;
 		}
 		return false;
 	}
