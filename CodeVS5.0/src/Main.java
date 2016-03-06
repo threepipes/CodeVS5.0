@@ -245,6 +245,8 @@ public class Main {
 				virtualStone = true;
 			}
 		}
+		culcItemEval(item, items, itemEval);
+		dump(itemEval);
 		System.err.println("turn:"+turn);
 		if(turn==37){
 			System.err.println("stop");
@@ -305,7 +307,8 @@ public class Main {
 	}
 	
 	// 脱出モードに入ったときに、犬配置を無視したアイテム距離で行動すること
-	boolean[] modeEscape = {false, false};
+	boolean modeEscape = false;
+//	boolean[] modeEscape = {false, false};
 	// 仮想石置きをするかどうか(攻撃されなかったらfalse)
 	boolean virtualStone = true;
 	boolean virtualThunder = false; // 仮想石置きに対して雷撃するか(石置き予想が一致したときオンにする)
@@ -318,16 +321,20 @@ public class Main {
 		order(dog, false);
 		setSkill = useFastSkill();
 		Command[] p = new Command[2];
-		for(int i=0; i<2; i++)
+		for(int i=0; i<2; i++){
 			p[i] = searchItemSimple(i, false, false);
+//			modeEscape[i] &= p[i]!=null;
+		}
 		if(checkDoCopy(p)){
 			p = doCopyCommand();
-			if(!modeEscape[0] && p[0]==null || p[1]==null && !modeEscape[1]){
-				for(int i=0; i<2; i++) modeEscape[i] |= p[i]==null;
+			if(p[0]==null || p[1]==null){
+//				if(!modeEscape[0] && p[0]==null || p[1]==null && !modeEscape[1]){
+//				for(int i=0; i<2; i++) modeEscape[i] |= p[i]==null;
 				p = doCopyCommand();
 			}
 		}else{
-			for(int i=0; i<2; i++) modeEscape[i] = p[i]==null;
+//			for(int i=0; i<2; i++) modeEscape[i] = p[i]==null;
+			modeEscape = true;
 		}
 		if(p[0]==null || p[1]==null){
 			resetBase();
@@ -339,7 +346,7 @@ public class Main {
 				resetBase();
 				initThunder(y, x);
 				Command[] tmp = new Command[2];
-				for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, false, modeEscape[j]);
+				for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, false, modeEscape);
 				if(tmp[0]==null || tmp[1]==null) continue;
 				if(p[0]==null||p[1]==null
 						|| Math.min(p[0].point, p[1].point)<Math.min(tmp[0].point, tmp[1].point)){
@@ -353,7 +360,8 @@ public class Main {
 		}
 		String res = "";
 		if(p[0]==null || p[1]==null){
-			for(int i=0; i<2; i++) modeEscape[i] |= p[i]==null;
+//			for(int i=0; i<2; i++) modeEscape[i] |= p[i]==null;
+			modeEscape = true;
 			resetBase();
 			order(dog, false);
 			for(int i=0; i<2; i++){
@@ -370,7 +378,7 @@ public class Main {
 //			else 
 			for(int i=0; i<2; i++) res += p[i]+"\n";
 		}else for(int i=0; i<2; i++) res += p[i]+"\n";
-		for(int i=0; i<2; i++) modeEscape[i] &= !checkGetItem(p[i], i);
+//		for(int i=0; i<2; i++) modeEscape[i] &= !checkGetItem(p[i], i);
 		if(setSkill != null) res = "3\n" + setSkill + "\n" + res;
 		else res = "2\n" + res;
 		System.err.println(res);
@@ -391,7 +399,7 @@ public class Main {
 			initCopying(y, x);
 			Command[] tmp = new Command[2];
 			for(int j=0; j<2; j++)
-				tmp[j] = searchItemSimple(j, true, modeEscape[j]);
+				tmp[j] = searchItemSimple(j, true, modeEscape);
 			if(tmp[0]==null || tmp[1]==null
 					|| tmp[0].moveStone|tmp[1].moveStone
 					&& !checkSafe(tmp, choice[i])) continue;
@@ -528,18 +536,32 @@ public class Main {
 //			}
 //		}
 		
-		int[] res = new int[5];
+		HashSet<Integer> set = new HashSet<>();
 		for(int i=0; i<5; i++){
-			res[i] = -1;
+//			res[i] = -1;
 			out:for(int y=choiceCenterY[i]-1; y<=choiceCenterY[i]+1; y++){
 				for(int x=choiceCenterX[i]-1; x<=choiceCenterX[i]+1; x++){
 					if(!isStone(y, x, map)){
-						res[i] = y*W+x;
+						set.add(y*W+x);
 						break out;
 					}
 				}
 			}
 		}
+//		for(int i=0; i<2; i++){
+//			if(!modeEscape[i]) continue;
+//			final int sy = pos[i]/W;
+//			final int sx = pos[i]%W;
+//			for(int y=sy-2; y<=sy+2; y++){
+//				for(int x=sx-2; x<=sx+2; x++){
+//					if(y<1||y>=H-1||x<1||x>=W-1||isStone(y, x, map)) continue;
+//					set.add(y*W+x);
+//				}
+//			}
+//		}
+		int[] res = new int[set.size()];
+		int i=0;
+		for(int p: set) res[i++] = p;
 		return res;
 	}
 	
@@ -922,6 +944,54 @@ public class Main {
 		return res;
 	}
 	
+	int[][] itemEval = new int[H][W];
+	// TODO
+	void culcItemEval(int[] list, int n, int[][] eval){
+//		for (int i = 0; i < H; ++i)
+//			Arrays.fill(dist[i], inf);
+		int[][][] dist = new int[n][H][W];
+		int maxD = H+W;
+		for(int i=0; i<n; i++){
+			for(int j=0; j<H; j++) Arrays.fill(dist[i][j], inf);
+			int qi = 0, qe = 0;
+			if(list[i]==-1) continue;
+			final int ty = list[i]/W;
+			final int tx = list[i]%W;
+			qy[qe] = ty;
+			qx[qe] = tx;
+			dist[i][ty][tx] = 0;
+			qe++;
+			while (qi < qe) {
+				int y = qy[qi], x = qx[qi];
+				if(dist[i][y][x]>=inf){
+					System.err.println("INF");
+				}
+				++qi;
+				for (int d = 0; d < 4; ++d) {
+					int ny = y+dy[d];
+					int nx = x+dx[d];
+					if (dist[i][ny][nx] == inf && !isWall(ny, nx, map)) {
+						dist[i][ny][nx] = dist[i][y][x] + 1;
+						qy[qe] = ny;
+						qx[qe] = nx;
+//						maxD = Math.max(maxD, dist[i][ny][nx]);
+						++qe;
+					}
+				}
+			}
+		}
+		for(int i=0; i<H; i++){
+			for(int j=0; j<W; j++){
+				eval[i][j] = 0;
+				for(int k=0; k<n; k++){
+					eval[i][j] += eq(maxD-dist[k][i][j]);
+				}
+				eval[i][j] /= 100;
+			}
+		}
+	}
+	static int eq(int a){return a*a;}
+	
 	final static int[] dy8 = {1, 1, 1, 0, 0,-1,-1,-1};
 	final static int[] dx8 = {1, 0,-1, 1,-1, 1, 0,-1};
 	void culcEval(){
@@ -977,10 +1047,12 @@ public class Main {
 			qbs[0] = mapToBS(map, mss);
 			qe++;
 		}
-		culcEval();
+		if(pow>=cost[SK_COPY_ME]*5) point = itemEval;
+		else culcEval();
 		int ay = -1, ax = -1;
 //		BitSet lastMap = null;
-		int best = esc||dogs<20?0:100;
+//		int best = esc||dogs<20?0:100;
+		int best = 40;
 		out: while (qi < qe) {
 			final int y = qy[qi], x = qx[qi];
 			BitSet smap = qbs[qi];
