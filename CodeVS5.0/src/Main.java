@@ -334,7 +334,7 @@ public class Main {
 			}
 		}else{
 //			for(int i=0; i<2; i++) modeEscape[i] = p[i]==null;
-			modeEscape = true;
+			modeEscape = false;
 		}
 		if(p[0]==null || p[1]==null){
 			resetBase();
@@ -1047,12 +1047,15 @@ public class Main {
 			qbs[0] = mapToBS(map, mss);
 			qe++;
 		}
+		int best = 40;
 		if(pow>=cost[SK_COPY_ME]*5) point = itemEval;
-		else culcEval();
+		else{
+			culcEval();
+			best = esc||dogs<20?0:100;
+		}
 		int ay = -1, ax = -1;
 //		BitSet lastMap = null;
 //		int best = esc||dogs<20?0:100;
-		int best = 40;
 		out: while (qi < qe) {
 			final int y = qy[qi], x = qx[qi];
 			BitSet smap = qbs[qi];
