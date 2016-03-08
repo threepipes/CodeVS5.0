@@ -626,10 +626,11 @@ public class Main {
 			if(!okMove(y, x, i, map) || dogDist[y+dy[i]][x+dx[i]] == 0) continue;
 			final int ny = y+dy[i];
 			final int nx = x+dx[i];
-			boolean moveStone = true;
+			boolean moveStone = false;
 			if(isStone(ny, nx, map)){
 				removeStone(ny, nx, map);
 				setStone(ny+dy[i], nx+dx[i], map);
+				moveStone = true;
 			}
 			boolean ok = false;
 			for(int j=0; j<5; j++){
