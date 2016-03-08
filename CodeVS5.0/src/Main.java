@@ -60,7 +60,7 @@ public class Main {
 	final static int msEmpty = (1<<15)-1;
 	final static int inf = 100000;
 	
-	final static int SK_FAST = 0;
+	final static int SK_RUN = 0;
 	final static int SK_STONE_ME = 1;
 	final static int SK_STONE_EN = 2;
 	final static int SK_THUND_ME = 3;
@@ -321,6 +321,9 @@ public class Main {
 		Command[] p = new Command[2];
 		for(int i=0; i<2; i++)
 			p[i] = searchItemSimple(i, false, false);
+		if(pow>=cost[SK_RUN] && hasNull(p) && cost[SK_RUN]<cost[SK_COPY_ME]){
+			p = doRunCommand();
+		}
 		if(checkDoCopy(p)){
 			p = doCopyCommand();
 //			if(!modeEscape && (p[0]==null || p[1]==null)){
@@ -373,6 +376,26 @@ public class Main {
 		else res = "2\n" + res;
 		System.err.println(res);
 		return res;
+	}
+	
+	boolean hasNull(Command[] t){
+		for(int i=0; i<t.length; i++) if(t[i] == null) return true;
+		return false;
+	}
+	
+	Command[] doRunCommand(){
+		Command[] p = new Command[2];
+		resetBase();
+		for(int i=0; i<2; i++){
+			p[i] = searchNearItem(itemDist, item, items, 2, i, false, false);
+			if(p[i] == null){
+				reset(i);
+				p[i] = searchNearItem(itemDist, item, items, 2, i, false, true);
+			}
+			update(i);
+		}
+		if(p[0]!=null && p[1]!=null) setSkill = String.valueOf(SK_RUN);
+		return p;
 	}
 	
 	Command[] doCopyCommand(){
@@ -899,6 +922,7 @@ public class Main {
 //			return walkEachSimple(pid);
 //		}
 		if(res != null){
+			// たぶん不要
 			update(pid);
 			removeFromItemDist(target[pid], copy);
 		}
