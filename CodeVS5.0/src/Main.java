@@ -266,6 +266,7 @@ public class Main {
 			}
 			len = d.length;
 		}
+		Command(){len = 0;}
 		Command(int d){com = ds[d];len = 1;list.add(d);}
 		Command(int d1, int d2){com = ds[d1]+ds[d2];len = 2;list.add(d1);list.add(d2);}
 		void setPoint(int p){
@@ -1026,18 +1027,41 @@ public class Main {
 		final int oldDst = dst;
 //		dump(bfr);
 //		boolean reach = dst<=2;
-		int[] dir = {-1, -1};
+//		int[] dir = {-1, -1};
+		int[] dir = new int[dep+1];
+		Arrays.fill(dir, -1);
 		while(dist[ay][ax]!=offset){
 			dist[ay][ax] = -2;
 			final int newy = ay+dy[bfr[ay][ax]];
 			final int newx = ax+dx[bfr[ay][ax]];
-			if(--dst<2) dir[dst] = 3-bfr[ay][ax];
+			if(--dst<dir.length) dir[dst] = 3-bfr[ay][ax];
 			ay = newy;
 			ax = newx;
 		}
 //		String res = "";
-		Command res = null;
+		Command res = new Command();
 		boolean moveStone = false;
+		/**/
+		for(int i=0; i<dir.length; i++){
+			if(dir[i]==-1){
+				Command add = searchNearItem(dist, list, n, dep-i, pid, copy, esc);
+				if(add!=null) res.add(add);
+				break;
+			}
+			removeNinja(ay, ax, pid, map);
+			ay += dy[dir[i]];
+			ax += dx[dir[i]];
+			if(isStone(ay, ax, map)){
+				removeStone(ay, ax, map);
+				setStone(ay+dy[dir[i]], ax+dx[dir[i]], map);
+				moveStone = true;
+			}
+			setNinja(ay, ax, pid, map, pos);
+			if(isItem(ay, ax, map)) removeFromItemDist(ay, ax, copy);
+			res.add(dir[i]);
+			res.setPoint(dogDist[ay][ax]);
+		}
+		/*
 		if(dir[1]!=-1){
 			removeNinja(ay, ax, pid, map);
 			// apply stone to map
@@ -1086,7 +1110,7 @@ public class Main {
 				Command add = searchNearItem(dist, list, n, dep-1, pid, copy, esc);
 				if(add!=null) res.add(add);
 			}
-		}
+		}/**/
 		if(!copy && nextToDog(res.apply(py, px))) return null;
 		res.moveStone |= moveStone;
 		return res;
