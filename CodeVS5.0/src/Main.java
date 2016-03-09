@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Queue;
+import java.util.Random;
 
 public class Main {
 	public static final void main(String args[]) {
@@ -77,6 +78,7 @@ public class Main {
 	int[] baseitem = new int[20];
 	int items;
 	int[][] dogDist = new int[H][W];
+	int[][] oldDogDist = new int[H][W];
 	HashMap<Integer, Integer> id2idxDog = new HashMap<>();
 	int[] dog = new int[H*W];
 	BitSet defaultDogMap = new BitSet(H*W);
@@ -320,7 +322,7 @@ public class Main {
 			for(int i=0; i<2; i++){
 				if(com[i] != null) point += com[i].point;
 			}
-			point -= sq(skillCost)*2;
+			point -= sq(skillCost)*3;
 		}
 		@Override
 		public String toString() {
@@ -348,6 +350,7 @@ public class Main {
 	
 	String createCommand(){
 		order(dog, false);
+		for(int i=0; i<H; i++) for(int j=0; j<W; j++) oldDogDist[i][j] = dogDist[i][j];
 		for(int i=0; i<2; i++) playOrder[i] = i;
 		if(itemDist[pos[1]/W][pos[1]%W]<itemDist[pos[0]/W][pos[0]%W] && dist(pos[0],pos[1])>4){
 			playOrder[0] = 1;
@@ -363,10 +366,10 @@ public class Main {
 			CommandSet comRun = doRunCommand();
 			if(comRun!=null&&comRun.point>com.point) com = comRun;
 		}
-		if(pow>=cost[SK_COPY_ME]){
+		if(pow>=cost[SK_COPY_ME] && rand.nextInt(1001)<=1000/(eSkillUse[SK_COPY_EN]+1)){
 //			p = doCopyCommand();
 			CommandSet comCp = doCopyCommand();
-			if(comCp!=null&&comCp.point>com.point+20){
+			if(comCp!=null&&comCp.point>com.point){
 				com = comCp;
 			}
 		}//else modeEscape = false;
@@ -998,7 +1001,7 @@ public class Main {
 	BitSet dogMap = new BitSet(H*W);
 	BitSet simulateDogs(int[] pos, int[] map, int dogs
 			, int[] dogList, HashMap<Integer, Integer> id2idx){
-		removeVirtualStone();
+		if(eSkillUse[SK_STONE_EN]==0) removeVirtualStone();
 		bfsPos(sdist, pos, pos.length);
 		dogMap.clear();
 		qu.clear();
@@ -1028,7 +1031,7 @@ public class Main {
 				break;
 			}
 		}
-		setVirtualStone();
+		if(eSkillUse[SK_STONE_EN]==0) setVirtualStone();
 		return dogMap;
 	}
 	
@@ -1073,7 +1076,7 @@ public class Main {
 			}
 		}
 	}
-	
+	Random rand = new Random(0);
 	class Status{
 		int y, x;
 		BitSet map;
@@ -1167,8 +1170,8 @@ public class Main {
 								&& ((dist[y][x]+1)>dep+1 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
 						&& (dist[y][x]>dep+1
 								|| ((dist[y][x]+1)/2<dogDist[ny][nx])
-								|| copy&&esc&&(dist[y][x]+1!=dep+1||dogDist[ny][nx]>0)
-								|| esc&&dogDist[ny][nx]>0)){
+								|| copy&&esc&&(dist[y][x]+1!=dep+1||oldDogDist[ny][nx]>1)
+								|| esc&&oldDogDist[ny][nx]>1)){
 					dist[ny][nx] = dist[y][x]+1;
 					bfr[ny][nx] = 3-i;
 //					qy[qe] = ny;
@@ -1198,7 +1201,7 @@ public class Main {
 								|| ((dist[y][x]+1)/2<dogDist[ny][nx]) // 犬から安全圏
 								|| dep==2&&dist[y][x]==0 // 超加速かつ目の前
 										// copyかつ行先に犬がいないか通過点である
-								|| copy&&(dist[y][x]+1!=dep+1||dogDist[ny][nx]>0)
+								|| copy&&(dist[y][x]+1!=dep+1||oldDogDist[ny][nx]>1)
 								/*|| esc&&dogDist[ny][nx]>0*/)
 						//((dist[y][x]+2)/2<dogDist[ny][nx]  || copy&&esc&&dogDist[ny][nx]>0)
 						/*&& priority>bestPriority*/){
@@ -1228,8 +1231,8 @@ public class Main {
 			System.err.println("search failed");
 			return null;
 		}
-		int oay = ay;
-		int oax = ax;
+//		int oay = ay;
+//		int oax = ax;
 //		dump(dist);
 //		dist[ay][ax] = -3;
 		int dst = dist[ay][ax];
@@ -1255,7 +1258,10 @@ public class Main {
 		for(int i=0; i<dir.length; i++){
 			if(dir[i]==-1){
 				Command add = searchNearItem(dist, list, n, dep-i, pid, copy, esc);
-				if(add!=null) res.add(add);
+				if(add!=null){
+					res.add(add);
+					res.point += getItem*70-lastDog*3;
+				}
 				break;
 			}
 			removeNinja(ay, ax, pid, map);
@@ -1272,12 +1278,20 @@ public class Main {
 				removeFromItemDist(ay, ax, copy);
 			}
 			res.add(dir[i]);
-			res.setPoint((target[pid]!=-1?50:0)+getItem*50-dist[ay][ax]-lastDog*3);
+			res.setPoint((target[pid]!=-1?50-dist[ay][ax]:0)+getItem*70-lastDog*3-getAroundDogs(ay, ax, dogDist)*10);
 		}
 
 		if(!copy && nextToDog(res.apply(py, px)) || copy && isDog(res.apply(py, px))) return null;
 		res.moveStone |= moveStone;
 		return res;
+	}
+	
+	int getAroundDogs(int py, int px, int[][] dogDist){
+		int count = 0;
+		for(int i=0; i<8; i++){
+			if(dogDist[py+dy8[i]][px+dx8[i]]==0) count++;
+		}
+		return count;
 	}
 	
 	int sq(int a){
