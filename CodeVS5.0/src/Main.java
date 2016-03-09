@@ -85,7 +85,7 @@ public class Main {
 	int[] pos = new int[2];
 	int[] target = new int[2];
 	int[] targetDist = new int[2];
-	int[] targetPos = new int[2];
+	int[] targetPos = {-1, -1};
 	int[] subpos = new int[2];
 	int[] basepos = new int[2];
 	
@@ -435,6 +435,7 @@ public class Main {
 			for(int j=0; j<2; j++){
 				tmp[j] = searchItemSimple(j, true, modeEscape[j]);
 				if(tmp[j]==null && !modeEscape[j]){
+					reset(j);
 					tmp[j] = searchItemSimple(j, true, true);
 					if(tmp[j] != null) modeEscape[j] = true;
 				}
@@ -639,13 +640,20 @@ public class Main {
 				if(isStone(ny, nx, map) || isWall(ny, nx, map) || isDog(ny, nx, dogMap))
 					count++;
 			}
-			if(count<4) continue;
+			if(count<1) continue;
+			count = 0;
+			int edir = -1;
+			for(int i=0; i<4; i++){
+				if(isStone(y+dy[i], x+dx[i], map)) count++;
+				else edir = i;
+			}
 			for(int sy=y-2; sy<=y+2; sy++){
 				for(int sx=x-2; sx<=x+2; sx++){
 					if(sy<1||sy>=H-1||sx<1||sx>=W-1||sy==y && sx==x
 							|| isStone(sy, sx, map)
 							|| isDog(sy, sx, dogMap)
-							|| isNinja(sy, sx, map))
+							|| isNinja(sy, sx, map)
+							|| count==3&&sy==y+dy[edir]&&sx==x+dx[edir])
 						continue;
 					setStone(sy, sx, map);
 					if(!escapable(y, x, map, dogDist)){
@@ -1009,25 +1017,25 @@ public class Main {
 		}
 	}
 	
-	class Status implements Comparable<Status>{
+	class Status{
 		int y, x;
 		BitSet map;
 		int dog;
 		boolean bfDog;
-		int priority;
-		Status(int y, int x, BitSet map, int dog, boolean bfd, int pr){
+//		int priority;
+		Status(int y, int x, BitSet map, int dog, boolean bfd){
 			this.y = y; this.x = x;
 			this.map = map;
 			this.dog = dog;
 			bfDog = bfd;
-			priority = pr;
+//			priority = pr;
 		}
-		@Override
-		public int compareTo(Status s) {
-			return s.priority-priority;
-		}
+//		@Override
+//		public int compareTo(Status s) {
+//			return s.priority-priority;
+//		}
 	}
-	Queue<Status> pq = new PriorityQueue<>();
+	Queue<Status> pq = new ArrayDeque<>();
 //	BitSet[] qbs = new BitSet[H*W];
 	int[][] bfr = new int[H][W];
 //	boolean[] bfdq = new boolean[H*W];
@@ -1051,7 +1059,7 @@ public class Main {
 		{
 			final int y = py;
 			final int x = px;
-			pq.add(new Status(y, x, mapToBS(map, mss), 0, false, 0));
+			pq.add(new Status(y, x, mapToBS(map, mss), 0, false));
 //			qy[0] = y;
 //			qx[0] = x;
 //			bfdq[0] = false;
@@ -1064,6 +1072,7 @@ public class Main {
 		}
 		culcEval();
 		int ay = -1, ax = -1;
+//		int bestPriority = -inf;
 //		BitSet lastMap = null;
 		int best = esc||dogs<20?0:100;
 		out: while (!pq.isEmpty()) {
@@ -1078,6 +1087,13 @@ public class Main {
 				final int nx = x+dx[i];
 				final int nny = ny+dy[i];
 				final int nnx = nx+dx[i];
+//				int priority = /*-dogDist[ny][nx]+*/sq(40-dist[ny][nx]);
+//				if(dogs<30){
+//					int tp = pos[pid^1];
+//					final int iy = tp/W;
+//					final int ix = tp%W;
+//					priority += (Math.abs(iy-ny)+Math.abs(ix-nx))*2;
+//				}
 				// 岩の向こうの犬は無視していることに注意
 				if(dist[ny][nx]==inf && !isWall(ny, nx, map)
 						// 岩がないか、押せる岩
@@ -1094,7 +1110,7 @@ public class Main {
 					int ndog = dg;
 					boolean bdg = false;
 					if(dogDist[ny][nx]==0){
-						if(dg>4 || bfdg) continue;
+						if(dg>2 || bfdg) continue;
 //						bfdq[qe] = true;
 //						dgq[qe] = dg+1;
 						bdg = true;
@@ -1106,19 +1122,14 @@ public class Main {
 						set(nny, nnx, newbs);
 					}
 //					qbs[qe] = newbs;
-					if(point[ny][nx]+dist[ny][nx]>best && dist(py,px,ny,nx)>=5 && dogDist[ny][nx]>0){
+					if(/*bestPriority==-inf && */point[ny][nx]+dist[ny][nx]>best && dist(py,px,ny,nx)>=5 && dogDist[ny][nx]>0){
 						best = point[ny][nx]+dist[ny][nx]+best;
 						ay = ny;
 						ax = nx;
 //						lastMap = newbs;
 					}
-					int priority = /*-dogDist[ny][nx]+*/dist[ny][nx];
-					if(targetPos[pid^1]!=-1 && dogs<30){
-						final int iy = targetPos[pid^1]/W;
-						final int ix = targetPos[pid^1]%W;
-						priority -= (Math.abs(iy-ny)+Math.abs(ix-nx))*2;
-					}
-					pq.add(new Status(ny, nx, newbs, ndog, bdg, priority));
+
+					pq.add(new Status(ny, nx, newbs, ndog, bdg));
 //					++qe;
 				}else if(dist[ny][nx]==-1
 						// 石が置いてないか，動かせる
@@ -1133,7 +1144,8 @@ public class Main {
 								|| copy&&(dist[y][x]+1!=dep+1||dogDist[ny][nx]>0)
 								/*|| esc&&dogDist[ny][nx]>0*/)
 						//((dist[y][x]+2)/2<dogDist[ny][nx]  || copy&&esc&&dogDist[ny][nx]>0)
-						){
+						/*&& priority>bestPriority*/){
+					/*bestPriority = priority;*/
 					ay = ny;
 					ax = nx;
 //					lastMap = smap;
@@ -1180,6 +1192,7 @@ public class Main {
 //		String res = "";
 		Command res = new Command();
 		boolean moveStone = false;
+		int getItem = 0;
 		/**/
 		for(int i=0; i<dir.length; i++){
 			if(dir[i]==-1){
@@ -1196,14 +1209,21 @@ public class Main {
 				moveStone = true;
 			}
 			setNinja(ay, ax, pid, map, pos);
-			if(isItem(ay, ax, map)) removeFromItemDist(ay, ax, copy);
+			if(isItem(ay, ax, map)){
+				getItem++;
+				removeFromItemDist(ay, ax, copy);
+			}
 			res.add(dir[i]);
-			res.setPoint(dogDist[ay][ax]);
+			res.setPoint(getItem*50-dist[ay][ax]);
 		}
 
 		if(!copy && nextToDog(res.apply(py, px)) || copy && isDog(res.apply(py, px))) return null;
 		res.moveStone |= moveStone;
 		return res;
+	}
+	
+	int sq(int a){
+		return a*a;
 	}
 	
 	int getNearEmptyCell(int y, int x, int[][] dogDist, int[][] itemDist){
