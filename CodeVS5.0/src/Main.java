@@ -1064,7 +1064,7 @@ public class Main {
 						// 石が置いてないか，動かせる
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
 								// 距離2以上か，人や犬が石の奥にいない
-								&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map))) && !isDogInMap(nny, nnx, basemap)
+								&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
 						
 						&& (dist[y][x]>dep+1 // 目的地が今回たどり着けない
 								|| ((dist[y][x]+1)/2<dogDist[ny][nx]) // 犬から安全圏
