@@ -602,6 +602,15 @@ public class Main {
 		return null;
 	}
 	
+	void removeVirtualStone(){
+		if(vStone==-1) return;
+		removeStone(vStone/W, vStone%W, map);
+	}
+	void setVirtualStone(){
+		if(vStone==-1) return;
+		setStone(vStone/W, vStone%W, map);
+	}
+	
 	int[] eSkillUse = new int[8];
 	int[][] eDogDist = new int[H][W];
 	int[] eDogList = new int[H*W];
@@ -922,6 +931,7 @@ public class Main {
 	BitSet dogMap = new BitSet(H*W);
 	BitSet simulateDogs(int[] pos, int[] map, int dogs
 			, int[] dogList, HashMap<Integer, Integer> id2idx){
+		removeVirtualStone();
 		bfsPos(sdist, pos, pos.length);
 		dogMap.clear();
 		qu.clear();
@@ -951,6 +961,7 @@ public class Main {
 				break;
 			}
 		}
+		setVirtualStone();
 		return dogMap;
 	}
 	
