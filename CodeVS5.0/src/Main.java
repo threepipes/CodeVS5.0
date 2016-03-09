@@ -1066,10 +1066,13 @@ public class Main {
 								// 距離2以上か，人や犬が石の奥にいない
 								&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map))) && !isDogInMap(nny, nnx, basemap)
 						
-						&& (dist[y][x]>2
-								|| ((dist[y][x]+1)/2<dogDist[ny][nx])
-								|| copy&&esc&&(dist[y][x]+1!=2||dogDist[ny][nx]>0)
-								|| esc&&dogDist[ny][nx]>0)//((dist[y][x]+2)/2<dogDist[ny][nx]  || copy&&esc&&dogDist[ny][nx]>0)
+						&& (dist[y][x]>dep+1 // 目的地が今回たどり着けない
+								|| ((dist[y][x]+1)/2<dogDist[ny][nx]) // 犬から安全圏
+								|| dep==2&&dist[y][x]==0 // 超加速かつ目の前
+										// copyかつ行先に犬がいないか通過点である
+								|| copy&&(dist[y][x]+1!=dep+1||dogDist[ny][nx]>0)
+								/*|| esc&&dogDist[ny][nx]>0*/)
+						//((dist[y][x]+2)/2<dogDist[ny][nx]  || copy&&esc&&dogDist[ny][nx]>0)
 						){
 					ay = ny;
 					ax = nx;
