@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Random;
+import java.util.Set;
+import java.util.TreeSet;
 
 public class Main {
 	public static final void main(String args[]) {
@@ -609,6 +611,24 @@ public class Main {
 	int[] choiceCenterY = {2,   2, H-3, H-3, H/2};
 	int[] choiceCenterX = {2, W-3,   2, W-3, W/2};
 	int[] getCopyChoice(){
+		TreeSet<Integer> cand = new TreeSet<>();
+		for(int i=0; i<H; i++){
+			for(int j=0; j<W; j++){
+				if(itemDist[i][j]==inf) continue;
+				cand.add(50-itemDist[i][j]<<10|(i*W)+j);
+			}
+		}
+		HashSet<Integer> set = new HashSet<>();
+//		int[] res = new int[Math.min(5, cand.size())];
+		for(int i=0; i<5&&!cand.isEmpty(); i++){
+			set.add(cand.pollFirst()&((1<<10)-1));
+		}
+		for(int i=0; i<2; i++) set.add(pos[i]);
+		int[] res = new int[set.size()];
+		int i = 0;
+		for(int p: set) res[i++] = p;
+		
+		
 //		int best = 0;
 //		int pos = 0;
 //		for(int i=0; i<H; i++){
@@ -619,18 +639,18 @@ public class Main {
 //			}
 //		}
 		
-		int[] res = new int[5];
-		for(int i=0; i<5; i++){
-			res[i] = -1;
-			out:for(int y=choiceCenterY[i]-1; y<=choiceCenterY[i]+1; y++){
-				for(int x=choiceCenterX[i]-1; x<=choiceCenterX[i]+1; x++){
-					if(!isStone(y, x, map)){
-						res[i] = y*W+x;
-						break out;
-					}
-				}
-			}
-		}
+//		int[] res = new int[5];
+//		for(int i=0; i<5; i++){
+//			res[i] = -1;
+//			out:for(int y=choiceCenterY[i]-1; y<=choiceCenterY[i]+1; y++){
+//				for(int x=choiceCenterX[i]-1; x<=choiceCenterX[i]+1; x++){
+//					if(!isStone(y, x, map)){
+//						res[i] = y*W+x;
+//						break out;
+//					}
+//				}
+//			}
+//		}
 		return res;
 	}
 	
