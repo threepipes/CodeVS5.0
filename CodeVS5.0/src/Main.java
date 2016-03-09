@@ -306,7 +306,8 @@ public class Main {
 	}
 	
 	// 脱出モードに入ったときに、犬配置を無視したアイテム距離で行動すること
-	boolean modeEscape = false;
+//	boolean modeEscape = false;
+	boolean[] modeEscape = {false, false};
 	// 仮想石置きをするかどうか(攻撃されなかったらfalse)
 	boolean virtualStone = true;
 	boolean virtualThunder = false; // 仮想石置きに対して雷撃するか(石置き予想が一致したときオンにする)
@@ -320,17 +321,13 @@ public class Main {
 		setSkill = useFastSkill();
 		Command[] p = new Command[2];
 		for(int i=0; i<2; i++)
-			p[i] = searchItemSimple(i, false, false);
+			p[i] = searchItemSimple(i, false, modeEscape[i]);
 		if(pow>=cost[SK_RUN] && hasNull(p) && cost[SK_RUN]<cost[SK_COPY_ME]){
 			p = doRunCommand();
 		}
 		if(checkDoCopy(p)){
 			p = doCopyCommand();
-//			if(!modeEscape && (p[0]==null || p[1]==null)){
-//				modeEscape = true;
-//				p = doCopyCommand();
-//			}
-		}else modeEscape = false;
+		}//else modeEscape = false;
 		if(p[0]==null || p[1]==null){
 			resetBase();
 			int[] pos = getThunderChoice();
@@ -341,7 +338,7 @@ public class Main {
 				resetBase();
 				initThunder(y, x);
 				Command[] tmp = new Command[2];
-				for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, false, modeEscape);
+				for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, false, modeEscape[j]);
 				if(tmp[0]==null || tmp[1]==null) continue;
 				if(p[0]==null||p[1]==null
 						|| Math.min(p[0].point, p[1].point)<Math.min(tmp[0].point, tmp[1].point)){
@@ -355,7 +352,8 @@ public class Main {
 		}
 		String res = "";
 		if(p[0]==null || p[1]==null){
-			modeEscape = true;
+//			modeEscape = true;
+			for(int i=0; i<2; i++) if(p[i] == null) modeEscape[i] = true;
 			resetBase();
 			order(dog, false);
 			for(int i=0; i<2; i++){
@@ -372,12 +370,27 @@ public class Main {
 //			else 
 			for(int i=0; i<2; i++) res += p[i]+"\n";
 		}else for(int i=0; i<2; i++) res += p[i]+"\n";
+		for(int i=0; i<2; i++) modeEscape[i] &= !checkGetItem(p[i], i);
 		if(setSkill != null) res = "3\n" + setSkill + "\n" + res;
 		else res = "2\n" + res;
 		System.err.println(res);
 		return res;
 	}
 	
+	boolean checkGetItem(Command com, int pid){
+		resetBase();
+		int y = pos[pid]/W;
+		int x = pos[pid]%W;
+		for(int d: com.list){
+			y += dy[d];
+			x += dx[d];
+			if(isItem(y, x, map)){
+				return true;
+			}
+		}
+		return false;
+	}
+
 	boolean hasNull(Command[] t){
 		for(int i=0; i<t.length; i++) if(t[i] == null) return true;
 		return false;
@@ -411,7 +424,13 @@ public class Main {
 			final int x = choice[i]%W;
 			initCopying(y, x);
 			Command[] tmp = new Command[2];
-			for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, true, modeEscape);
+			for(int j=0; j<2; j++){
+				tmp[j] = searchItemSimple(j, true, modeEscape[j]);
+				if(tmp[j]==null && !modeEscape[j]){
+					tmp[j] = searchItemSimple(j, true, true);
+					if(tmp[j] != null) modeEscape[j] = true;
+				}
+			}
 			if(tmp[0]==null || tmp[1]==null
 					|| tmp[0].moveStone|tmp[1].moveStone
 					&& !checkSafe(tmp, choice[i])) continue;
