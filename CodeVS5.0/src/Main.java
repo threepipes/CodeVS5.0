@@ -1,6 +1,7 @@
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -995,15 +996,28 @@ public class Main {
 		}
 	}
 	
-	BitSet[] qbs = new BitSet[H*W];
+	class Status{
+		int y, x;
+		BitSet map;
+		int dog;
+		boolean bfDog;
+		Status(int y, int x, BitSet map, int dog, boolean bfd){
+			this.y = y; this.x = x;
+			this.map = map;
+			this.dog = dog;
+			bfDog = bfd;
+		}
+	}
+	Queue<Status> pq = new ArrayDeque<>();
+//	BitSet[] qbs = new BitSet[H*W];
 	int[][] bfr = new int[H][W];
-	boolean[] bfdq = new boolean[H*W];
-	int[] dgq = new int[H*W];
+//	boolean[] bfdq = new boolean[H*W];
+//	int[] dgq = new int[H*W];
 	Command searchNearItem(int[][] dist, int[] list, int n, int dep, int pid, boolean copy, boolean esc){
-		final int offset = dep==0?1:0;
+//		final int offset = dep==0?1:0;
 		for (int i = 0; i < H; ++i)
 			Arrays.fill(dist[i], inf);
-		int qi = 0, qe = 0;
+//		int qi = 0, qe = 0;
 		int ddOld = 0;
 		for(int i=0; i<n; i++){
 			if(list[i]<0) continue;
@@ -1013,29 +1027,32 @@ public class Main {
 		}
 		final int py = pos[pid]/W;
 		final int px = pos[pid]%W;
+		pq.clear();
 		{
 			final int y = py;
 			final int x = px;
-			qy[0] = y;
-			qx[0] = x;
-			bfdq[0] = false;
-			dgq[0] = 0;
+			pq.add(new Status(y, x, mapToBS(map, mss), 0, false));
+//			qy[0] = y;
+//			qx[0] = x;
+//			bfdq[0] = false;
+//			dgq[0] = 0;
 			ddOld = dogDist[y][x];
 			if(ddOld>0) ddOld = 1;
-			dist[y][x] = offset;
-			qbs[0] = mapToBS(map, mss);
-			qe++;
+			dist[y][x] = 0;
+//			qbs[0] = mapToBS(map, mss);
+//			qe++;
 		}
 		culcEval();
 		int ay = -1, ax = -1;
 //		BitSet lastMap = null;
 		int best = esc||dogs<20?0:100;
-		out: while (qi < qe) {
-			int y = qy[qi], x = qx[qi];
-			int dg = dgq[qi];
-			boolean bfdg = bfdq[qi];
-			BitSet smap = qbs[qi];
-			++qi;
+		out: while (!pq.isEmpty()) {
+			Status p = pq.poll();
+			int y = p.y;
+			int x = p.x;
+			int dg = p.dog;
+			boolean bfdg = p.bfDog;
+			BitSet smap = p.map;
 			for (int i = 0; i < 4; ++i) {
 				final int ny = y+dy[i];
 				final int nx = x+dx[i];
@@ -1052,26 +1069,31 @@ public class Main {
 								|| esc&&dogDist[ny][nx]>0)){
 					dist[ny][nx] = dist[y][x]+1;
 					bfr[ny][nx] = 3-i;
-					qy[qe] = ny;
-					qx[qe] = nx;
+//					qy[qe] = ny;
+//					qx[qe] = nx;
+					int ndog = dg;
+					boolean bdg = false;
 					if(dogDist[ny][nx]==0){
 						if(dg>4 || bfdg) continue;
-						bfdq[qe] = true;
-						dgq[qe] = dg+1;
+//						bfdq[qe] = true;
+//						dgq[qe] = dg+1;
+						bdg = true;
+						ndog++;
 					}
 					BitSet newbs = (BitSet)smap.clone();
 					if(get(ny, nx, smap)){
 						clear(ny, nx, newbs);
 						set(nny, nnx, newbs);
 					}
-					qbs[qe] = newbs;
+//					qbs[qe] = newbs;
 					if(point[ny][nx]+dist[ny][nx]>best && dist(py,px,ny,nx)>=5 && dogDist[ny][nx]>0){
 						best = point[ny][nx]+dist[ny][nx]+best;
 						ay = ny;
 						ax = nx;
 //						lastMap = newbs;
 					}
-					++qe;
+					pq.add(new Status(ny, nx, newbs, ndog, bdg));
+//					++qe;
 				}else if(dist[ny][nx]==-1
 						// 石が置いてないか，動かせる
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
@@ -1113,14 +1135,14 @@ public class Main {
 		int oax = ax;
 //		dump(dist);
 //		dist[ay][ax] = -3;
-		int dst = dist[ay][ax]-offset;
-		final int oldDst = dst;
+		int dst = dist[ay][ax];
+//		final int oldDst = dst;
 //		dump(bfr);
 //		boolean reach = dst<=2;
 //		int[] dir = {-1, -1};
 		int[] dir = new int[dep+1];
 		Arrays.fill(dir, -1);
-		while(dist[ay][ax]!=offset){
+		while(dist[ay][ax]!=0){
 			dist[ay][ax] = -2;
 			final int newy = ay+dy[bfr[ay][ax]];
 			final int newx = ax+dx[bfr[ay][ax]];
@@ -1151,57 +1173,8 @@ public class Main {
 			res.add(dir[i]);
 			res.setPoint(dogDist[ay][ax]);
 		}
-		/*
-		if(dir[1]!=-1){
-			removeNinja(ay, ax, pid, map);
-			// apply stone to map
-			int ny = ay+dy[dir[0]];
-			int nx = ax+dx[dir[0]];
-			if(isStone(ny, nx, map)){
-				removeStone(ny, nx, map);
-				setStone(ny+dy[dir[0]], nx+dx[dir[0]], map);
-				moveStone = true;
-			}
-			if(dep==0){
-				setNinja(ny, nx, pid, map, pos);
-//				res = ds[dir[0]];
-				res = new Command(dir[0]);
-				res.setPoint(dogDist[ny][nx]);
-			}else{
-				ny += dy[dir[1]];
-				nx += dx[dir[1]];
-				if(isStone(ny, nx, map)){
-					removeStone(ny, nx, map);
-					setStone(ny+dy[dir[1]], nx+dx[dir[1]], map);
-					moveStone = true;
-				}
-				setNinja(ny, nx, pid, map, pos);
-				if(oldDst<=2) removeFromItemDist(oay, oax, copy);
-//				res = ds[dir[0]]+ds[dir[1]];
-				res = new Command(dir);
-				res.setPoint(dogDist[ny][nx]);
-			}
-		}else{
-			removeNinja(ay, ax, pid, map);
-			// apply stone to map
-			int ny = ay+dy[dir[0]];
-			int nx = ax+dx[dir[0]];
-			setNinja(ny, nx, pid, map, pos);
-			if(isStone(ny, nx, map)){
-				removeStone(ny, nx, map);
-				setStone(ny+dy[dir[0]], nx+dx[dir[0]], map);
-				moveStone = true;
-			}
-			removeFromItemDist(oay, oax, copy);
-			res = new Command(dir[0]);
-			res.setPoint(dogDist[ny][nx]);
-			if(dep>0){
-//				pos[pid] = ny*W + nx;
-				Command add = searchNearItem(dist, list, n, dep-1, pid, copy, esc);
-				if(add!=null) res.add(add);
-			}
-		}/**/
-		if(!copy && nextToDog(res.apply(py, px))) return null;
+
+		if(!copy && nextToDog(res.apply(py, px)) || copy && isDog(res.apply(py, px))) return null;
 		res.moveStone |= moveStone;
 		return res;
 	}
@@ -1221,8 +1194,12 @@ public class Main {
 		return bestID;
 	}
 	
+	boolean isDog(int pos){
+		return dogDist[pos/W][pos%W]==0;
+	}
+	
 	boolean nextToDog(int pos){
-		return dogDist[pos/W][pos%W]==1;
+		return dogDist[pos/W][pos%W]<=1;
 	}
 	
 	void dump(BitSet dog){
