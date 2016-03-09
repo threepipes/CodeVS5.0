@@ -347,7 +347,7 @@ public class Main {
 				for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, false, modeEscape[j]);
 				if(tmp[0]==null || tmp[1]==null) continue;
 				if(p[0]==null||p[1]==null
-						|| Math.min(p[0].point, p[1].point)<Math.min(tmp[0].point, tmp[1].point)){
+						|| p[0].point+p[1].point<tmp[0].point+tmp[1].point){
 					p = tmp.clone();
 					bestIdx = i;
 				}
@@ -444,7 +444,7 @@ public class Main {
 					|| tmp[0].moveStone|tmp[1].moveStone
 					&& !checkSafe(tmp, choice[i])) continue;
 			if(p[0]==null||p[1]==null
-					|| Math.min(p[0].point, p[1].point)<Math.min(tmp[0].point, tmp[1].point)){
+					|| p[0].point+p[1].point<tmp[0].point+tmp[1].point){
 				p = tmp.clone();
 				bestIdx = i;
 			}
@@ -1214,7 +1214,7 @@ public class Main {
 				removeFromItemDist(ay, ax, copy);
 			}
 			res.add(dir[i]);
-			res.setPoint(getItem*50-dist[ay][ax]);
+			res.setPoint(50+getItem*50-dist[ay][ax]);
 		}
 
 		if(!copy && nextToDog(res.apply(py, px)) || copy && isDog(res.apply(py, px))) return null;
