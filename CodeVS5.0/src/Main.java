@@ -320,7 +320,7 @@ public class Main {
 			for(int i=0; i<2; i++){
 				if(com[i] != null) point += com[i].point;
 			}
-			point -= skillCost*5;
+			point -= sq(skillCost)*2;
 		}
 		@Override
 		public String toString() {
@@ -342,10 +342,14 @@ public class Main {
 	// アイテムに近い順に行動
 	int[] playOrder = {0, 1};
 	
+	int dist(int p1, int p2){
+		return Math.abs(p1/W-p2/W)+Math.abs(p1%W-p2%W);
+	}
+	
 	String createCommand(){
 		order(dog, false);
 		for(int i=0; i<2; i++) playOrder[i] = i;
-		if(itemDist[pos[1]/W][pos[1]%W]<itemDist[pos[0]/W][pos[0]%W]){
+		if(itemDist[pos[1]/W][pos[1]%W]<itemDist[pos[0]/W][pos[0]%W] && dist(pos[0],pos[1])>4){
 			playOrder[0] = 1;
 			playOrder[1] = 0;
 		}
@@ -353,35 +357,26 @@ public class Main {
 		Command[] p = new Command[2];
 		for(int i=0; i<2; i++)
 			p[playOrder[i]] = searchItemSimple(playOrder[i], false, modeEscape[playOrder[i]]);
-		if(pow>=cost[SK_RUN] && hasNull(p) && cost[SK_RUN]<cost[SK_COPY_ME]){
-			Command[] com = doRunCommand();
+		CommandSet com = new CommandSet(p, setSkill, setSkill==null?0:1);
+		if(pow>=cost[SK_RUN]/* && hasNull(p) && cost[SK_RUN]<cost[SK_COPY_ME]*/){
+//			p = doRunCommand();
+			CommandSet comRun = doRunCommand();
+			if(comRun!=null&&comRun.point>com.point) com = comRun;
 		}
-		if(checkDoCopy(p)){
-			p = doCopyCommand();
-		}//else modeEscape = false;
-		if((p[0]==null || p[1]==null) && pow>=cost[SK_THUND_ME]){
-			resetBase();
-			int[] pos = getThunderChoice();
-			int bestIdx = -1;
-			for(int i=0; i<pos.length; i++){
-				final int y = pos[i]/W;
-				final int x = pos[i]%W;
-				resetBase();
-				initThunder(y, x);
-				Command[] tmp = new Command[2];
-				for(int j=0; j<2; j++) tmp[playOrder[j]]
-						= searchItemSimple(playOrder[j], false, modeEscape[playOrder[j]]);
-				if(tmp[0]==null || tmp[1]==null) continue;
-				if(p[0]==null||p[1]==null
-						|| p[0].point+p[1].point<tmp[0].point+tmp[1].point){
-					p = tmp.clone();
-					bestIdx = i;
-				}
-				if(bestIdx>=0){
-					setSkill = SK_THUND_ME+" "+pToStr(pos[bestIdx]);
-				}
+		if(pow>=cost[SK_COPY_ME]){
+//			p = doCopyCommand();
+			CommandSet comCp = doCopyCommand();
+			if(comCp!=null&&comCp.point>com.point+20){
+				com = comCp;
 			}
+		}//else modeEscape = false;
+		if(pow>=cost[SK_THUND_ME]){
+			CommandSet comTh = doThunderCommand();
+			if(comTh!=null&&comTh.point>com.point) com = comTh;
 		}
+		p[0] = com.com[0];
+		p[1] = com.com[1];
+		setSkill = com.skill;
 		String res = "";
 		if(p[0]==null || p[1]==null){
 //			modeEscape = true;
@@ -411,6 +406,33 @@ public class Main {
 		return res;
 	}
 	
+	CommandSet doThunderCommand(){
+		Command[] p = new Command[2];
+		resetBase();
+		int[] pos = getThunderChoice();
+		int bestIdx = -1;
+		for(int i=0; i<pos.length; i++){
+			final int y = pos[i]/W;
+			final int x = pos[i]%W;
+			resetBase();
+			initThunder(y, x);
+			Command[] tmp = new Command[2];
+			for(int j=0; j<2; j++) tmp[playOrder[j]]
+					= searchItemSimple(playOrder[j], false, modeEscape[playOrder[j]]);
+			if(tmp[0]==null || tmp[1]==null) continue;
+			if(p[0]==null||p[1]==null
+					|| p[0].point+p[1].point<tmp[0].point+tmp[1].point){
+				p = tmp.clone();
+				bestIdx = i;
+			}
+//			if(bestIdx>=0){
+//				setSkill = ;
+//			}
+		}
+		if(bestIdx<0) return null;
+		return new CommandSet(p, SK_THUND_ME+" "+pToStr(pos[bestIdx]), cost[SK_THUND_ME]);
+	}
+	
 	boolean checkGetItem(Command com, int pid){
 		resetBase();
 		int y = pos[pid]/W;
@@ -431,7 +453,7 @@ public class Main {
 		return false;
 	}
 	
-	Command[] doRunCommand(){
+	CommandSet doRunCommand(){
 		Command[] p = new Command[2];
 		resetBase();
 		for(int i=0; i<2; i++){
@@ -443,11 +465,11 @@ public class Main {
 			}
 			update(pid);
 		}
-		if(p[0]!=null && p[1]!=null) setSkill = String.valueOf(SK_RUN);
-		return p;
+		if(p[0]!=null && p[1]!=null) return new CommandSet(p, String.valueOf(SK_RUN), cost[SK_RUN]);
+		return null;
 	}
 	
-	Command[] doCopyCommand(){
+	CommandSet doCopyCommand(){
 		Command[] p = new Command[2];
 		// 分身の術
 		resetBase();
@@ -479,7 +501,8 @@ public class Main {
 			}
 		}
 		if(bestIdx>=0){
-			setSkill = SK_COPY_ME+" "+pToStr(choice[bestIdx]);
+			return new CommandSet(p, SK_COPY_ME+" "+pToStr(choice[bestIdx]), cost[SK_COPY_ME]);
+//			setSkill = SK_COPY_ME+" "+pToStr(choice[bestIdx]);
 		}else{
 			for(int i=0; i<choice.length; i++){
 				if(choice[i] == -1) continue;
@@ -501,8 +524,9 @@ public class Main {
 					bestIdx = i;
 				}
 			}
+			if(p[0]==null || p[1]==null) return null;
+			return new CommandSet(p, SK_COPY_ME+" "+pToStr(choice[bestIdx]), cost[SK_COPY_ME]);
 		}
-		return p;
 	}
 	
 	// 石を動かした場合に敵の動きが変わるので，simulateDogがあてにならない
@@ -614,7 +638,9 @@ public class Main {
 	}
 	
 	int vStone;
+	int fastSkillCost;
 	String useFastSkill(){
+		fastSkillCost = 0;
 		vStone = stoneAttack(pos, dogDist, map, defaultDogMap, ePow);
 		if(vStone != -1 && virtualStone){
 			useVirtualStone = turn;
@@ -627,8 +653,10 @@ public class Main {
 		
 		int stone = stoneAttack(epos, eDogDist, emap, eDogMap, pow);
 		if(stone != -1){
+			fastSkillCost = cost[SK_STONE_EN];
 			return SK_STONE_EN+" "+(stone/W)+" "+(stone%W);
 		}else if(nesc != -1 && eSkillUse[SK_COPY_ME]>4 && ePow>eSkillUse[SK_COPY_ME]){
+			fastSkillCost = cost[SK_COPY_EN];
 			return SK_COPY_EN+" "+(epos[nesc]/W)+" "+(epos[nesc]%W);
 		}
 		return null;
@@ -1072,6 +1100,7 @@ public class Main {
 	Command searchNearItem(int[][] dist, int[] list, int n, int dep, int pid, boolean copy, boolean esc){
 //		final int offset = dep==0?1:0;
 		targetPos[pid] = -1;
+		target[pid] = -1;
 		for (int i = 0; i < H; ++i)
 			Arrays.fill(dist[i], inf);
 //		int qi = 0, qe = 0;
@@ -1101,6 +1130,7 @@ public class Main {
 		}
 		culcEval();
 		int ay = -1, ax = -1;
+		int lastDog = 0;
 //		int bestPriority = -inf;
 //		BitSet lastMap = null;
 		int best = esc||dogs<20?0:100;
@@ -1116,6 +1146,13 @@ public class Main {
 				final int nx = x+dx[i];
 				final int nny = ny+dy[i];
 				final int nnx = nx+dx[i];
+				int ndog = dg;
+				boolean bdg = false;
+				if(dogDist[ny][nx]==0){
+					if(dg>2 || bfdg) continue;
+					bdg = true;
+					ndog++;
+				}
 //				int priority = /*-dogDist[ny][nx]+*/sq(40-dist[ny][nx]);
 //				if(dogs<30){
 //					int tp = pos[pid^1];
@@ -1136,15 +1173,6 @@ public class Main {
 					bfr[ny][nx] = 3-i;
 //					qy[qe] = ny;
 //					qx[qe] = nx;
-					int ndog = dg;
-					boolean bdg = false;
-					if(dogDist[ny][nx]==0){
-						if(dg>2 || bfdg) continue;
-//						bfdq[qe] = true;
-//						dgq[qe] = dg+1;
-						bdg = true;
-						ndog++;
-					}
 					BitSet newbs = (BitSet)smap.clone();
 					if(get(ny, nx, smap)){
 						clear(ny, nx, newbs);
@@ -1177,6 +1205,7 @@ public class Main {
 					/*bestPriority = priority;*/
 					ay = ny;
 					ax = nx;
+					lastDog = p.dog;
 //					lastMap = smap;
 //					if(get(ny, nx, smap)){
 //						clear(ny, nx, lastMap);
@@ -1243,7 +1272,7 @@ public class Main {
 				removeFromItemDist(ay, ax, copy);
 			}
 			res.add(dir[i]);
-			res.setPoint(50+getItem*50-dist[ay][ax]);
+			res.setPoint((target[pid]!=-1?50:0)+getItem*50-dist[ay][ax]-lastDog*3);
 		}
 
 		if(!copy && nextToDog(res.apply(py, px)) || copy && isDog(res.apply(py, px))) return null;
@@ -1289,6 +1318,7 @@ public class Main {
 	}
 	
 	void removeFromItemDist(int idx, boolean copy){
+		if(idx<0) return;
 		item[idx] = -1;
 		bfsItem(itemDist, item, items, map, defaultDogMap, copy);
 	}
