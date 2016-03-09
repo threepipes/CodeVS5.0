@@ -117,6 +117,7 @@ public class Main {
 	}
 	
 	void mapToDogBS(int[] s, BitSet bs){
+		bs.clear();
 		for(int i=0;i<s.length;i++)
 			if((s[i]&msd)>0) bs.set(i);
 	}
@@ -233,7 +234,7 @@ public class Main {
 				// 使用しなかった
 				if(useVirtualStone==turn-1 && oldEPow>=cost[SK_STONE_EN]){
 					virtualStone = false;
-					System.err.println("Set enable to use virtual stone. turn: "+turn);
+					System.err.println("Set disable to use virtual stone. turn: "+turn);
 				}
 			}else{
 				if(useVirtualStone==turn-1 && usedSkill[SK_STONE_EN] && isStone(vStone/W, vStone%W, this.map)){
@@ -246,7 +247,7 @@ public class Main {
 			}
 		}
 		System.err.println("turn:"+turn);
-		if(turn==37){
+		if(turn==40){
 			System.err.println("stop");
 		}
 		bfsDog(eDogDist, eDogList, eDogs, emap);
@@ -328,7 +329,7 @@ public class Main {
 		if(checkDoCopy(p)){
 			p = doCopyCommand();
 		}//else modeEscape = false;
-		if(p[0]==null || p[1]==null){
+		if((p[0]==null || p[1]==null) && pow>=cost[SK_THUND_ME]){
 			resetBase();
 			int[] pos = getThunderChoice();
 			int bestIdx = -1;
@@ -485,6 +486,7 @@ public class Main {
 			}
 			p[i] = y*W+x;
 		}
+		if(isStone(copy/W, copy%W, map)) return false;
 		BitSet bs = simulateDogs(new int[]{copy}, map, dogs, dog, id2idxDog);
 		for(int i=0; i<2; i++){
 //			if(p[i]/W==cy && p[i]%W==cx) return false;
@@ -604,8 +606,8 @@ public class Main {
 	int[] epos = new int[2];
 	int nesc; // 逃げられない方の忍者
 	int stoneAttack(int[] pos, int[][] dogDist, int[] map, BitSet dogMap, int pow){
-		if(cost[SK_STONE_EN]>pow) return -1;
 		nesc = -1;
+		if(cost[SK_STONE_EN]>pow) return -1;
 		for(int pid=0; pid<2; pid++){
 			final int y = pos[pid]/W;
 			final int x = pos[pid]%W;
