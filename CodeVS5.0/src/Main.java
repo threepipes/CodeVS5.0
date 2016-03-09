@@ -85,6 +85,7 @@ public class Main {
 	int[] pos = new int[2];
 	int[] target = new int[2];
 	int[] targetDist = new int[2];
+	int[] targetPos = new int[2];
 	int[] subpos = new int[2];
 	int[] basepos = new int[2];
 	
@@ -391,6 +392,7 @@ public class Main {
 			y += dy[d];
 			x += dx[d];
 			if(isItem(y, x, map)){
+				targetPos[pid] = -1;
 				return true;
 			}
 		}
@@ -1007,25 +1009,32 @@ public class Main {
 		}
 	}
 	
-	class Status{
+	class Status implements Comparable<Status>{
 		int y, x;
 		BitSet map;
 		int dog;
 		boolean bfDog;
-		Status(int y, int x, BitSet map, int dog, boolean bfd){
+		int priority;
+		Status(int y, int x, BitSet map, int dog, boolean bfd, int pr){
 			this.y = y; this.x = x;
 			this.map = map;
 			this.dog = dog;
 			bfDog = bfd;
+			priority = pr;
+		}
+		@Override
+		public int compareTo(Status s) {
+			return s.priority-priority;
 		}
 	}
-	Queue<Status> pq = new ArrayDeque<>();
+	Queue<Status> pq = new PriorityQueue<>();
 //	BitSet[] qbs = new BitSet[H*W];
 	int[][] bfr = new int[H][W];
 //	boolean[] bfdq = new boolean[H*W];
 //	int[] dgq = new int[H*W];
 	Command searchNearItem(int[][] dist, int[] list, int n, int dep, int pid, boolean copy, boolean esc){
 //		final int offset = dep==0?1:0;
+		targetPos[pid] = -1;
 		for (int i = 0; i < H; ++i)
 			Arrays.fill(dist[i], inf);
 //		int qi = 0, qe = 0;
@@ -1042,7 +1051,7 @@ public class Main {
 		{
 			final int y = py;
 			final int x = px;
-			pq.add(new Status(y, x, mapToBS(map, mss), 0, false));
+			pq.add(new Status(y, x, mapToBS(map, mss), 0, false, 0));
 //			qy[0] = y;
 //			qx[0] = x;
 //			bfdq[0] = false;
@@ -1103,7 +1112,13 @@ public class Main {
 						ax = nx;
 //						lastMap = newbs;
 					}
-					pq.add(new Status(ny, nx, newbs, ndog, bdg));
+					int priority = /*-dogDist[ny][nx]+*/dist[ny][nx];
+					if(targetPos[pid^1]!=-1 && dogs<30){
+						final int iy = targetPos[pid^1]/W;
+						final int ix = targetPos[pid^1]%W;
+						priority -= (Math.abs(iy-ny)+Math.abs(ix-nx))*2;
+					}
+					pq.add(new Status(ny, nx, newbs, ndog, bdg, priority));
 //					++qe;
 				}else if(dist[ny][nx]==-1
 						// 石が置いてないか，動かせる
@@ -1129,6 +1144,7 @@ public class Main {
 					bfr[ny][nx] = 3-i;
 					dist[ny][nx] = dist[y][x]+1;
 					target[pid] = xy2idxItem.get(ny*W+nx);
+					targetPos[pid] = ny*W+nx;
 					targetDist[pid] = dist[ny][nx];
 					break out;
 				}
