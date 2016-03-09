@@ -323,6 +323,10 @@ public class Main {
 			this.skill = skill;
 			for(int i=0; i<2; i++){
 				if(com[i] != null) point += com[i].point;
+				else{
+					point = 0;
+					break;
+				}
 			}
 			point -= sq(skillCost)*3;
 		}
@@ -363,21 +367,25 @@ public class Main {
 		for(int i=0; i<2; i++)
 			p[playOrder[i]] = searchItemSimple(playOrder[i], false, modeEscape[playOrder[i]]);
 		CommandSet com = new CommandSet(p, setSkill, setSkill==null?0:1);
-		if(pow>=cost[SK_RUN]/* && hasNull(p) && cost[SK_RUN]<cost[SK_COPY_ME]*/){
-//			p = doRunCommand();
-			CommandSet comRun = doRunCommand();
-			if(comRun!=null&&comRun.point>com.point) com = comRun;
-		}
-		if(pow>=cost[SK_COPY_ME] && rand.nextInt(1001)<=1000/(eSkillUse[SK_COPY_EN]+1)){
-//			p = doCopyCommand();
-			CommandSet comCp = doCopyCommand();
-			if(comCp!=null&&comCp.point>com.point){
-				com = comCp;
+		if(com.point==0){
+			if(pow>=cost[SK_RUN] /*&& cost[SK_RUN]<cost[SK_COPY_ME]*/){
+				//			p = doRunCommand();
+				CommandSet comRun = doRunCommand();
+				if(comRun!=null&&comRun.point>com.point) com = comRun;
 			}
-		}//else modeEscape = false;
-		if(pow>=cost[SK_THUND_ME]){
-			CommandSet comTh = doThunderCommand();
-			if(comTh!=null&&comTh.point>com.point) com = comTh;
+			if(pow>=cost[SK_COPY_ME]
+					&& rand.nextInt(1001)<=1000/(eSkillUse[SK_COPY_EN]+1)
+					&& (vStone==-1||!virtualStone)){
+				//			p = doCopyCommand();
+				CommandSet comCp = doCopyCommand();
+				if(comCp!=null&&comCp.point>com.point){
+					com = comCp;
+				}
+			}//else modeEscape = false;
+			if(pow>=cost[SK_THUND_ME]){
+				CommandSet comTh = doThunderCommand();
+				if(comTh!=null&&comTh.point>com.point) com = comTh;
+			}
 		}
 		p[0] = com.com[0];
 		p[1] = com.com[1];
@@ -612,10 +620,11 @@ public class Main {
 	int[] choiceCenterX = {2, W-3,   2, W-3, W/2};
 	int[] getCopyChoice(){
 		TreeSet<Integer> cand = new TreeSet<>();
+		culcItemEval(item, items, itemEval);
 		for(int i=0; i<H; i++){
 			for(int j=0; j<W; j++){
-				if(itemDist[i][j]==inf) continue;
-				cand.add(50-itemDist[i][j]<<10|(i*W)+j);
+				if(isWall(i, j, map) || isStone(i, j, map) || itemEval[i][j]<0) continue;
+				cand.add(itemEval[i][j]<<10|(i*W)+j);
 			}
 		}
 		HashSet<Integer> set = new HashSet<>();
@@ -1316,6 +1325,53 @@ public class Main {
 	
 	int sq(int a){
 		return a*a;
+	}
+	
+	int[][] itemEval = new int[H][W];
+	// TODO
+	void culcItemEval(int[] list, int n, int[][] eval){
+//		for (int i = 0; i < H; ++i)
+//			Arrays.fill(dist[i], inf);
+		int[][][] dist = new int[n][H][W];
+		int maxD = H+W;
+		for(int i=0; i<n; i++){
+			for(int j=0; j<H; j++) Arrays.fill(dist[i][j], inf);
+			int qi = 0, qe = 0;
+			if(list[i]==-1) continue;
+			final int ty = list[i]/W;
+			final int tx = list[i]%W;
+			qy[qe] = ty;
+			qx[qe] = tx;
+			dist[i][ty][tx] = 0;
+			qe++;
+			while (qi < qe) {
+				int y = qy[qi], x = qx[qi];
+				if(dist[i][y][x]>=inf){
+					System.err.println("INF");
+				}
+				++qi;
+				for (int d = 0; d < 4; ++d) {
+					int ny = y+dy[d];
+					int nx = x+dx[d];
+					if (dist[i][ny][nx] == inf && !isWall(ny, nx, map)) {
+						dist[i][ny][nx] = dist[i][y][x] + 1;
+						qy[qe] = ny;
+						qx[qe] = nx;
+//						maxD = Math.max(maxD, dist[i][ny][nx]);
+						++qe;
+					}
+				}
+			}
+		}
+		for(int i=0; i<H; i++){
+			for(int j=0; j<W; j++){
+				eval[i][j] = 0;
+				for(int k=0; k<n; k++){
+					eval[i][j] += sq(maxD-dist[k][i][j]);
+				}
+				eval[i][j] /= 100;
+			}
+		}
 	}
 	
 	int getNearEmptyCell(int y, int x, int[][] dogDist, int[][] itemDist){
