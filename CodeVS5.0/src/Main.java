@@ -361,6 +361,7 @@ public class Main {
 				p[i] = searchItemSimple(i, false, true);
 				if(p[i] == null){
 					reset(i);
+					if(vStone!=-1) removeStone(vStone/W, vStone%W, map);
 					p[i] = walkEachSimple(i, false, true);
 				}
 				update(i);
@@ -729,7 +730,7 @@ public class Main {
 					point = point==0?-2:-1;
 					isItem = false;
 				}
-				if(bestItem>point || bestItem==point&&dogDist[nny][nnx]>bestDog){
+				if((bestItem>point || bestItem==point&&dogDist[nny][nnx]>bestDog)){
 					bestItem = point;
 					bestDog = dogDist[nny][nnx];
 					bm1 = i;
@@ -765,6 +766,10 @@ public class Main {
 			return walkEachSimple(pid, true, false);
 		}
 		return new Command(bm1,bm2);
+	}
+	
+	int dist(int y, int x, int ty, int tx){
+		return Math.abs(y-ty)+Math.abs(x-tx);
 	}
 	
 	void dump(int[] map, int mask){
@@ -980,6 +985,8 @@ public class Main {
 	
 	BitSet[] qbs = new BitSet[H*W];
 	int[][] bfr = new int[H][W];
+	boolean[] bfdq = new boolean[H*W];
+	int[] dgq = new int[H*W];
 	Command searchNearItem(int[][] dist, int[] list, int n, int dep, int pid, boolean copy, boolean esc){
 		final int offset = dep==0?1:0;
 		for (int i = 0; i < H; ++i)
@@ -999,6 +1006,8 @@ public class Main {
 			final int x = px;
 			qy[0] = y;
 			qx[0] = x;
+			bfdq[0] = false;
+			dgq[0] = 0;
 			ddOld = dogDist[y][x];
 			if(ddOld>0) ddOld = 1;
 			dist[y][x] = offset;
@@ -1011,6 +1020,8 @@ public class Main {
 		int best = esc||dogs<20?0:100;
 		out: while (qi < qe) {
 			int y = qy[qi], x = qx[qi];
+			int dg = dgq[qi];
+			boolean bfdg = bfdq[qi];
 			BitSet smap = qbs[qi];
 			++qi;
 			for (int i = 0; i < 4; ++i) {
@@ -1023,29 +1034,43 @@ public class Main {
 						// 岩がないか、押せる岩
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
 								&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
-						&& (((dist[y][x]+1)/2<dogDist[ny][nx])
+						&& (dist[y][x]>2
+								|| ((dist[y][x]+1)/2<dogDist[ny][nx])
 								|| copy&&esc&&(dist[y][x]+1!=2||dogDist[ny][nx]>0)
 								|| esc&&dogDist[ny][nx]>0)){
 					dist[ny][nx] = dist[y][x]+1;
 					bfr[ny][nx] = 3-i;
 					qy[qe] = ny;
 					qx[qe] = nx;
+					if(dogDist[ny][nx]==0){
+						if(dg>4 || bfdg) continue;
+						bfdq[qe] = true;
+						dgq[qe] = dg+1;
+					}
 					BitSet newbs = (BitSet)smap.clone();
 					if(get(ny, nx, smap)){
 						clear(ny, nx, newbs);
 						set(nny, nnx, newbs);
 					}
 					qbs[qe] = newbs;
-					if(point[ny][nx]+dist[ny][nx]>best && (Math.abs(ny-py)+Math.abs(nx-px)>=5) && dogDist[ny][nx]>0){
+					if(point[ny][nx]+dist[ny][nx]>best && dist(py,px,ny,nx)>=5 && dogDist[ny][nx]>0){
 						best = point[ny][nx]+dist[ny][nx]+best;
 						ay = ny;
 						ax = nx;
 //						lastMap = newbs;
 					}
 					++qe;
-				}else if(dist[ny][nx]==-1 && (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
-						&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map))) && !isDogInMap(nny, nnx, basemap)
-						&& ((dist[y][x]+2)/2<dogDist[ny][nx]  || copy&&esc&&dogDist[ny][nx]>0)){
+				}else if(dist[ny][nx]==-1
+						// 石が置いてないか，動かせる
+						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
+								// 距離2以上か，人や犬が石の奥にいない
+								&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map))) && !isDogInMap(nny, nnx, basemap)
+						
+						&& (dist[y][x]>2
+								|| ((dist[y][x]+1)/2<dogDist[ny][nx])
+								|| copy&&esc&&(dist[y][x]+1!=2||dogDist[ny][nx]>0)
+								|| esc&&dogDist[ny][nx]>0)//((dist[y][x]+2)/2<dogDist[ny][nx]  || copy&&esc&&dogDist[ny][nx]>0)
+						){
 					ay = ny;
 					ax = nx;
 //					lastMap = smap;
