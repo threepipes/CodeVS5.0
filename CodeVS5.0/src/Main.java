@@ -107,6 +107,9 @@ public class Main {
 	boolean isItem(int y, int x, int[] s){return (s[y*W+x]&msi)>0;}
 	boolean isDog(int y, int x, BitSet bs){return bs.get(y*W+x);}
 	boolean isDogInMap(int y, int x, int[]s){return (s[y*W+x]&msd)>0;}
+	boolean isStoneMove(int y, int x, int[] s, int[][] dogDist){
+		return !isStone(y, x, s) && dogDist[y][x]!=0 && !isWall(y, x, s) && !isNinja(y, x, s);
+	}
 	
 	void removeStone(int y, int x, int[] s){s[y*W+x] &= ~mss;}
 	void removeNinja(int y, int x, int id, int[] s){s[y*W+x]&=~(msn1<<id);}
@@ -799,6 +802,15 @@ public class Main {
 		return isStoneMove(ny+dy[d], nx+dx[d], map);
 	}
 	
+	boolean okMove(int y, int x, int d, int[] map, int[][] dogDist){
+		if(d==4) return true;
+		final int ny = y+dy[d];
+		final int nx = x+dx[d];
+		if(isFloor(ny, nx, map)) return true;
+		if(!isStone(ny, nx, map)) return false;
+		return isStoneMove(ny+dy[d], nx+dx[d], map, dogDist);
+	}
+	
 	int[] tmpDogList = new int[H*W];
 	int[] getTmpDogList(BitSet bs){
 		for(int i=bs.nextSetBit(0),idx=0;i!=-1;i=bs.nextSetBit(i+1),idx++)
@@ -1033,10 +1045,10 @@ public class Main {
 				if(dist[ny][nx]==inf && !isWall(ny, nx, map)
 						// 岩がないか、押せる岩
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
-								&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
-						&& (dist[y][x]>2
+								&& ((dist[y][x]+1)>dep+1 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
+						&& (dist[y][x]>dep+1
 								|| ((dist[y][x]+1)/2<dogDist[ny][nx])
-								|| copy&&esc&&(dist[y][x]+1!=2||dogDist[ny][nx]>0)
+								|| copy&&esc&&(dist[y][x]+1!=dep+1||dogDist[ny][nx]>0)
 								|| esc&&dogDist[ny][nx]>0)){
 					dist[ny][nx] = dist[y][x]+1;
 					bfr[ny][nx] = 3-i;
@@ -1064,7 +1076,7 @@ public class Main {
 						// 石が置いてないか，動かせる
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
 								// 距離2以上か，人や犬が石の奥にいない
-								&& ((dist[y][x]+1)>2 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
+								&& ((dist[y][x]+1)>dep+1 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
 						
 						&& (dist[y][x]>dep+1 // 目的地が今回たどり着けない
 								|| ((dist[y][x]+1)/2<dogDist[ny][nx]) // 犬から安全圏
@@ -1090,6 +1102,10 @@ public class Main {
 			}
 		}
 		if(ay==-1){
+			if(dep==0&&copy){
+				int d = getNearEmptyCell(py, px, dogDist, dist);
+				if(d!=-1) return new Command(d);
+			}
 			System.err.println("search failed");
 			return null;
 		}
@@ -1188,6 +1204,21 @@ public class Main {
 		if(!copy && nextToDog(res.apply(py, px))) return null;
 		res.moveStone |= moveStone;
 		return res;
+	}
+	
+	int getNearEmptyCell(int y, int x, int[][] dogDist, int[][] itemDist){
+		int best = inf+1;
+		int bestID = -1;
+		for(int i=0; i<4; i++){
+			final int ny = y+dy[i];
+			final int nx = x+dx[i];
+			if(isDog(ny, nx, dogMap) || !okMove(y, x, i, map, dogDist)) continue;
+			if(itemDist[ny][nx]<best){
+				best = itemDist[ny][nx];
+				bestID = i;
+			}
+		}
+		return bestID;
 	}
 	
 	boolean nextToDog(int pos){
