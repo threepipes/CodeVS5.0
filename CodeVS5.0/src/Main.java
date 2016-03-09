@@ -310,6 +310,23 @@ public class Main {
 			return com;
 		}
 	}
+	class CommandSet{
+		Command[] com;
+		String skill;
+		int point;
+		CommandSet(Command[] com, String skill, int skillCost){
+			this.com = com;
+			this.skill = skill;
+			for(int i=0; i<2; i++){
+				if(com[i] != null) point += com[i].point;
+			}
+			point -= skillCost*5;
+		}
+		@Override
+		public String toString() {
+			return (skill==null?"2\n":"3\n"+skill)+com[0]+"\n"+com[1]+"\n";
+		}
+	}
 	
 	// 脱出モードに入ったときに、犬配置を無視したアイテム距離で行動すること
 //	boolean modeEscape = false;
@@ -322,14 +339,22 @@ public class Main {
 	boolean fastStone = true;
 	boolean fastCopy = true;
 	
+	// アイテムに近い順に行動
+	int[] playOrder = {0, 1};
+	
 	String createCommand(){
 		order(dog, false);
+		for(int i=0; i<2; i++) playOrder[i] = i;
+		if(itemDist[pos[1]/W][pos[1]%W]<itemDist[pos[0]/W][pos[0]%W]){
+			playOrder[0] = 1;
+			playOrder[1] = 0;
+		}
 		setSkill = useFastSkill();
 		Command[] p = new Command[2];
 		for(int i=0; i<2; i++)
-			p[i] = searchItemSimple(i, false, modeEscape[i]);
+			p[playOrder[i]] = searchItemSimple(playOrder[i], false, modeEscape[playOrder[i]]);
 		if(pow>=cost[SK_RUN] && hasNull(p) && cost[SK_RUN]<cost[SK_COPY_ME]){
-			p = doRunCommand();
+			Command[] com = doRunCommand();
 		}
 		if(checkDoCopy(p)){
 			p = doCopyCommand();
@@ -344,7 +369,8 @@ public class Main {
 				resetBase();
 				initThunder(y, x);
 				Command[] tmp = new Command[2];
-				for(int j=0; j<2; j++) tmp[j] = searchItemSimple(j, false, modeEscape[j]);
+				for(int j=0; j<2; j++) tmp[playOrder[j]]
+						= searchItemSimple(playOrder[j], false, modeEscape[playOrder[j]]);
 				if(tmp[0]==null || tmp[1]==null) continue;
 				if(p[0]==null||p[1]==null
 						|| p[0].point+p[1].point<tmp[0].point+tmp[1].point){
@@ -363,21 +389,22 @@ public class Main {
 			resetBase();
 			order(dog, false);
 			for(int i=0; i<2; i++){
-				p[i] = searchItemSimple(i, false, true);
-				if(p[i] == null){
-					reset(i);
+				int player = playOrder[i];
+				p[player] = searchItemSimple(player, false, true);
+				if(p[player] == null){
+					reset(player);
 					if(vStone!=-1) removeStone(vStone/W, vStone%W, map);
-					p[i] = walkEachSimple(i, false, true);
+					p[player] = walkEachSimple(player, false, true);
 				}
-				update(i);
+				update(player);
 			}
 			resetBase();
 //			if(p[0]==null || p[1]==null)
 //				for(int i=0; i<2; i++) res += walkEachSimple(i, false, true)+"\n";
 //			else 
-			for(int i=0; i<2; i++) res += p[i]+"\n";
-		}else for(int i=0; i<2; i++) res += p[i]+"\n";
+		}
 		for(int i=0; i<2; i++) modeEscape[i] &= !checkGetItem(p[i], i);
+		for(int i=0; i<2; i++) res += p[i]+"\n";
 		if(setSkill != null) res = "3\n" + setSkill + "\n" + res;
 		else res = "2\n" + res;
 		System.err.println(res);
@@ -408,12 +435,13 @@ public class Main {
 		Command[] p = new Command[2];
 		resetBase();
 		for(int i=0; i<2; i++){
-			p[i] = searchNearItem(itemDist, item, items, 2, i, false, false);
-			if(p[i] == null){
-				reset(i);
-				p[i] = searchNearItem(itemDist, item, items, 2, i, false, true);
+			int pid = playOrder[i];
+			p[pid] = searchNearItem(itemDist, item, items, 2, pid, false, false);
+			if(p[pid] == null){
+				reset(pid);
+				p[pid] = searchNearItem(itemDist, item, items, 2, pid, false, true);
 			}
-			update(i);
+			update(pid);
 		}
 		if(p[0]!=null && p[1]!=null) setSkill = String.valueOf(SK_RUN);
 		return p;
@@ -433,11 +461,12 @@ public class Main {
 			initCopying(y, x);
 			Command[] tmp = new Command[2];
 			for(int j=0; j<2; j++){
-				tmp[j] = searchItemSimple(j, true, modeEscape[j]);
-				if(tmp[j]==null && !modeEscape[j]){
-					reset(j);
-					tmp[j] = searchItemSimple(j, true, true);
-					if(tmp[j] != null) modeEscape[j] = true;
+				int pid = playOrder[j];
+				tmp[pid] = searchItemSimple(pid, true, modeEscape[pid]);
+				if(tmp[pid]==null && !modeEscape[pid]){
+					reset(pid);
+					tmp[pid] = searchItemSimple(pid, true, true);
+					if(tmp[pid] != null) modeEscape[pid] = true;
 				}
 			}
 			if(tmp[0]==null || tmp[1]==null
@@ -460,8 +489,8 @@ public class Main {
 				initCopying(y, x);
 				Command[] tmp = new Command[2];
 				for(int j=0; j<2; j++){
-					walkEachSimple(j, true, false);
-					update(j);
+					walkEachSimple(playOrder[j], true, false);
+					update(playOrder[j]);
 				}
 				if(tmp[0]==null || tmp[1]==null
 						|| tmp[0].moveStone|tmp[1].moveStone
