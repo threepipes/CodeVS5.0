@@ -981,11 +981,19 @@ public class Main {
 		for (int i = 0; i < H; ++i)
 			Arrays.fill(dist[i], inf);
 		int qi = 0, qe = 0;
-		for(int i=0; i<n; i++){
+		out: for(int i=0; i<n; i++){
 			if(list[i]==-1) continue;
 			final int y = list[i]/W;
 			final int x = list[i]%W;
-			if(isStone(y, x, map)) continue;
+			if(isStone(y, x, map)){
+				for(int j=0; j<4; j++){
+					int d = j;
+					if(d==3) d = 4;
+					else if(d==4) d = 3;
+					if(isStone(y+dy[d],x+dx[d],map) && isStone(y+dy[(d+1)%4], x+dx[(d+1)%4], map))
+						continue out;
+				}
+			}
 			qy[qe] = y;
 			qx[qe] = x;
 			dist[y][x] = 0;
@@ -1590,11 +1598,12 @@ public class Main {
 	}
 	TreeSet<Pos> bq = new TreeSet<>();
 	final int SEARCH_DEP = 10;
-	final int BEAM_WID = 20;
+	final int BEAM_WID = 30;
 	final int POW_MLT = 10;
 	final int ITEM_MLT = 10;
+	final int DOG_MLT = 6;
 	Pos[] tmpArray = new Pos[BEAM_WID];
-	final int[] act = {-1, SK_COPY_ME, SK_RUN};
+//	final int[] act = {-1, SK_COPY_ME, SK_RUN};
 	CommandSet beamSearch(int[] pos, int[] map, int[][] itemDist){
 		System.err.println("beam search");
 		int[] itemDistLine = new int[H*W];
@@ -1621,7 +1630,7 @@ public class Main {
 										}
 										// 先のコマンドが下位，ninja[0]のコマンドが下位
 										bq.add(np);
-										if(bq.size()>BEAM_WID) bq.pollLast();
+										if(bq.size()>BEAM_WID-i) bq.pollLast();
 									}
 								}
 							}
@@ -1671,7 +1680,7 @@ public class Main {
 		BitSet dogMap = new BitSet(H*W);
 		int getItem = p.getItem;
 		int[] newItem = p.item.clone();
-		for(int i=0; i<p.dog.length; i++) dogMap.set(p.dog[i]);
+		for(int i=0; i<dogs; i++) dogMap.set(p.dog[i]);
 		for(int pid=0; pid<2; pid++){
 			for(int i=0; i<2; i++){
 				y[pid] += dy[d[pid][i]];
@@ -1702,7 +1711,7 @@ public class Main {
 				if(dogMap.get((y[pid]+dy[i])*W+x[pid]+dx[i])) return null;
 			}
 		}
-		int fp = getFarPos(sdist, p.p, 2, map);
+		final int fp = getFarPos(sdist, p.p, 2, map);
 		int[] dog = p.dog.clone();
 		if(copy==1){
 			getFarPos(sdist, new int[]{fp}, 1, map);
@@ -1713,7 +1722,6 @@ public class Main {
 		}else{
 			simulateDogs(map, dog, dogMap);
 		}
-		// pointをどうするか．．．
 		if(getItem>0){
 			// itemDistの更新
 			bfsItem(newItem, map, dogMap);
@@ -1726,7 +1734,7 @@ public class Main {
 			}
 		}
 		int[] newpos = {y[0]*W+x[0], y[1]*W+x[1]};
-		return new Pos(newpos, pow, dog, map, newItem, pow*POW_MLT-distSum(newItem, newpos)-dogNum*3, getItem, p.command);
+		return new Pos(newpos, pow, dog, map, newItem, pow*POW_MLT-distSum(newItem, newpos)-dogNum*DOG_MLT, getItem, p.command);
 	}
 	
 	int distSum(int[] dist, int[] pos){
