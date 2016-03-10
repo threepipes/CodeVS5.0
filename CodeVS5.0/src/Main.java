@@ -73,6 +73,7 @@ public class Main {
 	final static int SK_COPY_EN = 6;
 	final static int SK_ATTACK = 7;
 	
+	int[] useSkill = new int[8];
 	HashMap<Integer, Integer> xy2idxItem = new HashMap<>();
 	int[][] itemDist = new int[H][W];
 	int[] item = new int[20];
@@ -188,7 +189,7 @@ public class Main {
 				setItem(row, col, map);
 				addItem(row, col, i);
 			}
-			int useSkill[] = new int[skills];
+//			int useSkill[] = new int[skills];
 			for (int i = 0; i < skills; ++i) {
 				useSkill[i] = sc.nextInt();
 			}
@@ -684,7 +685,7 @@ public class Main {
 		}
 		
 		int stone = stoneAttack(epos, eDogDist, emap, eDogMap, pow);
-		if(stone != -1){
+		if(stone != -1 && rand.nextInt(1000)<=1000/sq(useSkill[SK_STONE_EN]+1)){
 			fastSkillCost = cost[SK_STONE_EN];
 			return SK_STONE_EN+" "+(stone/W)+" "+(stone%W);
 		}else if(nesc != -1 && eSkillUse[SK_COPY_ME]>4 && ePow>eSkillUse[SK_COPY_ME]){
@@ -733,7 +734,7 @@ public class Main {
 			count = 0;
 			int edir = -1;
 			for(int i=0; i<4; i++){
-				if(isStone(y+dy[i], x+dx[i], map)) count++;
+				if(isStone(y+dy[i], x+dx[i], map) || isWall(y+dy[i], x+dx[i], map)) count++;
 				else edir = i;
 			}
 			for(int sy=y-2; sy<=y+2; sy++){
@@ -827,8 +828,14 @@ public class Main {
 			final int ny = y+dy[i];
 			final int nx = x+dx[i];
 			if(isDog(ny, nx, defaultDogMap)) dogCount++;
+			boolean moveStone = false;
 			if(!okMove(y, x, i, map) || !copy&&dogDist[ny][nx] == 0) continue;
-			else if(isStone(ny, nx, map)) stoneCount++;
+			else if(isStone(ny, nx, map)){
+				stoneCount++;
+				moveStone = true;
+				removeStone(ny, nx, map);
+				setStone(ny+dy[i], nx+dx[i], map);
+			}
 			if(isItem(ny, nx, map)) isItem = true;
 			for(int j=0; j<5; j++){
 				if(!okMove(ny, nx, j, map)
@@ -849,7 +856,10 @@ public class Main {
 					bm2 = j;
 					bm3 = -1;
 				}
-				
+			}
+			if(moveStone){
+				removeStone(ny+dy[i], nx+dx[i], map);
+				setStone(ny, nx, map);
 			}
 		}
 		if(last && cost[SK_ATTACK]<=10 && cost[SK_ATTACK]<=pow && dogCount>4){
@@ -1198,7 +1208,7 @@ public class Main {
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
 								&& ((dist[y][x]+1)>dep+1 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
 						&& (dist[y][x]>dep+1
-								|| ((dist[y][x]+1)/2<dogDist[ny][nx])
+								|| (dist[y][x]/2<oldDogDist[ny][nx])
 								|| copy&&esc&&(dist[y][x]+1!=dep+1||oldDogDist[ny][nx]>1)
 								|| esc&&oldDogDist[ny][nx]>1)){
 					dist[ny][nx] = dist[y][x]+1;
@@ -1227,7 +1237,7 @@ public class Main {
 								&& ((dist[y][x]+1)>dep+1 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
 						
 						&& (dist[y][x]>dep+1 // 目的地が今回たどり着けない
-								|| ((dist[y][x]+1)/2<dogDist[ny][nx]) // 犬から安全圏
+								|| (dist[y][x]/2<oldDogDist[ny][nx]) // 犬から安全圏
 								|| dep==2&&dist[y][x]==0 // 超加速かつ目の前
 										// copyかつ行先に犬がいないか通過点である
 								|| copy&&(dist[y][x]+1!=dep+1||oldDogDist[ny][nx]>1)
