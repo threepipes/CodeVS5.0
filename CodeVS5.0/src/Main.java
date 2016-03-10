@@ -359,7 +359,7 @@ public class Main {
 	String createCommand(){
 		if(true){
 			order(dog, true);
-//			setSkill = useFastSkill();
+			setSkill = useFastSkill();
 			CommandSet com = beamSearch(pos, map, itemDist);
 			if(com != null){
 				if(com.skill == null) com.skill = setSkill;
@@ -367,7 +367,7 @@ public class Main {
 			}
 		}
 		order(dog, false);
-		setSkill = useFastSkill();
+//		setSkill = useFastSkill();
 		for(int i=0; i<H; i++) for(int j=0; j<W; j++) oldDogDist[i][j] = dogDist[i][j];
 		for(int i=0; i<2; i++) playOrder[i] = i;
 		if(itemDist[pos[1]/W][pos[1]%W]<itemDist[pos[0]/W][pos[0]%W] && dist(pos[0],pos[1])>5){
@@ -1579,6 +1579,8 @@ public class Main {
 			this.item = item;
 			this.getItem = getItem;
 			this.command = com;
+			hash = p[0]<<8|p[1];
+			for(int i=0; i<dogs; i++) hash ^= dog[i]+1;
 		}
 		@Override
 		public int compareTo(Pos p) {
