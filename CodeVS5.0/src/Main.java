@@ -1573,6 +1573,7 @@ public class Main {
 	CommandSet beamSearch(int[] pos, int[] map, int[][] itemDist){
 		int[] itemDistLine = new int[H*W];
 		for(int i=0; i<H; i++) for(int j=0; j<W; j++) itemDistLine[i*W+j] = itemDist[i][j];
+		bq.clear();
 		bq.add(new Pos(pos, pow, dog.clone(), mapToBS(map, mss), itemDistLine, pow*10-distSum(itemDistLine, pos)));
 		int[][] d = new int[2][2];
 //		int[] d2 = new int[2];
@@ -1603,7 +1604,20 @@ public class Main {
 				}
 			}
 		}
-		return null;
+		int command = bq.pollFirst().command;
+		Command[] com = new Command[2];
+		com[0] = new Command(command&7, (command>>3)&7);
+		com[1] = new Command((command>>6)&7, (command>>9)&7);
+		String skill = null;
+		int skillCost = 0;
+		if((command&1<<13)>0){
+			final int fp = getFarPos(sdist, pos, 2, mapToBS(map, mss));
+			final int y = fp/W;
+			final int x = fp%W;
+			skill = SK_COPY_ME+" "+y+" "+x;
+			skillCost = cost[SK_COPY_ME];
+		}
+		return new CommandSet(com, skill, skillCost);
 	}
 	int[] y = new int[2];
 	int[] x = new int[2];
