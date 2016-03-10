@@ -621,7 +621,7 @@ public class Main {
 	int[] choiceCenterX = {2, W-3,   2, W-3, W/2};
 	int[] getCopyChoice(){
 		TreeSet<Integer> cand = new TreeSet<>();
-		culcItemEval(item, items, itemEval);
+		culcListEval(item, items, itemEval);
 		for(int i=0; i<H; i++){
 			for(int j=0; j<W; j++){
 				if(isWall(i, j, map) || isStone(i, j, map) || itemEval[i][j]<0) continue;
@@ -639,6 +639,12 @@ public class Main {
 		for(int p: set) res[i++] = p;
 		
 		
+//		culcListEval(dog, dogs, dogEval);
+//		for(int y=0; y<H; y++){
+//			for(int x=0; x<W; x++){
+//				System.err.print((itemEval[y][x]-dogEval[y][x])+"\t");
+//			}System.err.println();
+//		}System.err.println();
 //		int best = 0;
 //		int pos = 0;
 //		for(int i=0; i<H; i++){
@@ -1206,7 +1212,8 @@ public class Main {
 				if(dist[ny][nx]==inf && !isWall(ny, nx, map)
 						// 岩がないか、押せる岩
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
-								&& ((dist[y][x]+1)>dep+1 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
+								&& ((dist[y][x]+1)>dep+1 && (!isDogInMap(nny, nnx, basemap)||getAroundDogs(nny, nnx, dogDist)<3)
+										|| !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
 						&& (dist[y][x]>dep+1
 								|| (dist[y][x]/2<oldDogDist[ny][nx])
 								|| copy&&esc&&(dist[y][x]+1!=dep+1||oldDogDist[ny][nx]>1)
@@ -1234,7 +1241,8 @@ public class Main {
 						// 石が置いてないか，動かせる
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
 								// 距離2以上か，人や犬が石の奥にいない
-								&& ((dist[y][x]+1)>dep+1 || !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
+								&& ((dist[y][x]+1)>dep+1 && (!isDogInMap(nny, nnx, basemap)||getAroundDogs(nny, nnx, dogDist)<3)
+										|| !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
 						
 						&& (dist[y][x]>dep+1 // 目的地が今回たどり着けない
 								|| (dist[y][x]/2<oldDogDist[ny][nx]) // 犬から安全圏
@@ -1338,8 +1346,9 @@ public class Main {
 	}
 	
 	int[][] itemEval = new int[H][W];
+	int[][] dogEval = new int[H][W];
 	// TODO
-	void culcItemEval(int[] list, int n, int[][] eval){
+	void culcListEval(int[] list, int n, int[][] eval){
 //		for (int i = 0; i < H; ++i)
 //			Arrays.fill(dist[i], inf);
 		int[][][] dist = new int[n][H][W];
