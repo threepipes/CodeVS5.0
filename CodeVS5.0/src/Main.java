@@ -262,6 +262,7 @@ public class Main {
 		}
 		bfsDog(eDogDist, eDogList, eDogs, emap);
 		return createCommand();
+//		return beamSearch(pos, map, itemDist).toString();
 	}
 	
 	class Command{
@@ -333,7 +334,7 @@ public class Main {
 		}
 		@Override
 		public String toString() {
-			return (skill==null?"2\n":"3\n"+skill)+com[0]+"\n"+com[1]+"\n";
+			return (skill==null?"2\n":"3\n"+skill+"\n")+com[0]+"\n"+com[1]+"\n";
 		}
 	}
 	
@@ -356,6 +357,11 @@ public class Main {
 	}
 	
 	String createCommand(){
+		if(true){
+			order(dog, true);
+			CommandSet com = beamSearch(pos, map, itemDist);
+			if(com != null) return com.toString();
+		}
 		order(dog, false);
 		for(int i=0; i<H; i++) for(int j=0; j<W; j++) oldDogDist[i][j] = dogDist[i][j];
 		for(int i=0; i<2; i++) playOrder[i] = i;
@@ -1005,7 +1011,7 @@ public class Main {
 	void bfsItem(int[] dist, BitSet map, BitSet dogMap){
 //		Arrays.fill(dist, inf);
 		int qi = 0, qe = 0;
-		for(int i=0; i<H*W; i++){
+		out:for(int i=0; i<H*W; i++){
 			if(dist[i]!=0){
 				dist[i] = inf;
 				continue;
@@ -1013,7 +1019,10 @@ public class Main {
 			final int y = i/W;
 			final int x = i%W;
 			if(map.get(i)){
-				continue;
+				for(int d=0; d<4; d++){
+					if(map.get((y+dy[d])*W+x+dx[d]) && map.get((y+dy[(d+1)%4])*W+x+dx[(d+1)%4]))
+						continue out;
+				}
 			}
 			qy[qe] = y;
 			qx[qe] = x;
@@ -1145,7 +1154,7 @@ public class Main {
 	void simulateDogs(BitSet map, int[] dogList, BitSet dogMap){
 //		bfsPos(sdist, pos, pos.length);
 		qu.clear();
-		for(int i=0; i<dogList.length; i++){
+		for(int i=0; i<dogs; i++){
 			final int y = dogList[i]/W;
 			final int x = dogList[i]%W;
 			qu.add((sdist[y][x]<<10)|i);
@@ -1551,14 +1560,18 @@ public class Main {
 		int[] dog;
 		int[] item;
 		int point;
+		int getItem;
 		int hash;
 		int command;
-		Pos(int[] p, int pow, int[] dog, BitSet stone, int[] item, int point){
+		Pos(int[] p, int pow, int[] dog, BitSet stone, int[] item, int point, int getItem, int com){
 			this.p = p;
 			this.pow = pow;
-			this.point = point;
+			this.point = point+getItem*5;
 			this.dog = dog;
 			this.stone = stone;
+			this.item = item;
+			this.getItem = getItem;
+			this.command = com;
 		}
 		@Override
 		public int compareTo(Pos p) {
@@ -1571,10 +1584,11 @@ public class Main {
 	final int BEAM_WID = 10;
 	Pos[] tmpArray = new Pos[BEAM_WID];
 	CommandSet beamSearch(int[] pos, int[] map, int[][] itemDist){
+		System.err.println("beam search");
 		int[] itemDistLine = new int[H*W];
 		for(int i=0; i<H; i++) for(int j=0; j<W; j++) itemDistLine[i*W+j] = itemDist[i][j];
 		bq.clear();
-		bq.add(new Pos(pos, pow, dog.clone(), mapToBS(map, mss), itemDistLine, pow*10-distSum(itemDistLine, pos)));
+		bq.add(new Pos(pos, pow, dog.clone(), mapToBS(map, mss), itemDistLine, pow*10-distSum(itemDistLine, pos), 0, 0));
 		int[][] d = new int[2][2];
 //		int[] d2 = new int[2];
 		for(int i=0; i<SEARCH_DEP; i++){
@@ -1604,6 +1618,7 @@ public class Main {
 				}
 			}
 		}
+		if(bq.size()==0) return null;
 		int command = bq.pollFirst().command;
 		Command[] com = new Command[2];
 		com[0] = new Command(command&7, (command>>3)&7);
@@ -1622,6 +1637,9 @@ public class Main {
 	int[] y = new int[2];
 	int[] x = new int[2];
 	Pos simulate(Pos p, int[][] d, boolean copy){
+		if(d[0][0]==2 && d[0][1]==2){
+//			System.err.println();
+		}
 		for(int i=0; i<2; i++){
 			y[i] = p.p[i]/W;
 			x[i] = p.p[i]%W;
@@ -1633,7 +1651,8 @@ public class Main {
 		}
 		BitSet map = (BitSet)p.stone.clone();
 		BitSet dogMap = new BitSet(H*W);
-		int getItem = 0;
+		int getItem = p.getItem;
+		int[] newItem = p.item.clone();
 		for(int i=0; i<p.dog.length; i++) dogMap.set(p.dog[i]);
 		for(int pid=0; pid<2; pid++){
 			for(int i=0; i<2; i++){
@@ -1656,9 +1675,9 @@ public class Main {
 					map.clear(pos);
 					map.set(ny*W+nx);
 				}
-				if(p.item[pos]==0){
+				if(newItem[pos]==0){
 					getItem++;
-					p.item[pos] = -1;
+					newItem[pos] = -1;
 				}
 			}
 			for(int i=0; i<4; i++){
@@ -1676,14 +1695,17 @@ public class Main {
 		// pointをどうするか．．．
 		if(getItem>0){
 			// itemDistの更新
-			int[] newItemDist = p.item.clone();
-			bfsItem(newItemDist, map, dogMap);
-			int[] newpos = {y[0]*W+x[0], y[1]*W+x[1]};
-			return new Pos(newpos, pow+2*getItem, dog, map, newItemDist, pow*10+getItem*5-distSum(newItemDist, newpos));
-		}else{
-			int[] newpos = {y[0]*W+x[0], y[1]*W+x[1]};
-			return new Pos(newpos, pow, dog, map, p.item, pow*10-distSum(p.item, newpos));
+			bfsItem(newItem, map, dogMap);
+			pow += 2*getItem;
 		}
+		int dogNum = 0;
+		for(int i=0; i<2; i++){
+			for(int j=0; j<4; j++){
+				if(dogMap.get((y[i]+dy[j])*W+x[i]+dx[j])) dogNum++;
+			}
+		}
+		int[] newpos = {y[0]*W+x[0], y[1]*W+x[1]};
+		return new Pos(newpos, pow, dog, map, newItem, pow*10-distSum(newItem, newpos)-dogNum*3, getItem, p.command);
 	}
 	
 	int distSum(int[] dist, int[] pos){
