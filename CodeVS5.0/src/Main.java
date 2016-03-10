@@ -325,11 +325,11 @@ public class Main {
 			for(int i=0; i<2; i++){
 				if(com[i] != null) point += com[i].point;
 				else{
-					point = 0;
+					point = -inf;
 					break;
 				}
 			}
-			point -= sq(skillCost)*3;
+			point -= sq(skillCost)*6;
 		}
 		@Override
 		public String toString() {
@@ -359,7 +359,7 @@ public class Main {
 		order(dog, false);
 		for(int i=0; i<H; i++) for(int j=0; j<W; j++) oldDogDist[i][j] = dogDist[i][j];
 		for(int i=0; i<2; i++) playOrder[i] = i;
-		if(itemDist[pos[1]/W][pos[1]%W]<itemDist[pos[0]/W][pos[0]%W] && dist(pos[0],pos[1])>4){
+		if(itemDist[pos[1]/W][pos[1]%W]<itemDist[pos[0]/W][pos[0]%W] && dist(pos[0],pos[1])>5){
 			playOrder[0] = 1;
 			playOrder[1] = 0;
 		}
@@ -368,12 +368,18 @@ public class Main {
 		for(int i=0; i<2; i++)
 			p[playOrder[i]] = searchItemSimple(playOrder[i], false, modeEscape[playOrder[i]]);
 		CommandSet com = new CommandSet(p, setSkill, setSkill==null?0:1);
-		if(com.point==0){
+//		if(com.point==0){
 			if(pow>=cost[SK_RUN] /*&& cost[SK_RUN]<cost[SK_COPY_ME]*/){
 				//			p = doRunCommand();
 				CommandSet comRun = doRunCommand();
 				if(comRun!=null&&comRun.point>com.point) com = comRun;
 			}
+			if(pow>=cost[SK_THUND_ME]){
+				CommandSet comTh = doThunderCommand();
+				if(comTh!=null&&comTh.point>com.point) com = comTh;
+			}
+//		}
+		if(com.point==-inf || cost[SK_RUN]>2){
 			if(pow>=cost[SK_COPY_ME]
 					&& rand.nextInt(1001)<=1000/(eSkillUse[SK_COPY_EN]+1)
 					&& (vStone==-1||!virtualStone)){
@@ -383,10 +389,6 @@ public class Main {
 					com = comCp;
 				}
 			}//else modeEscape = false;
-			if(pow>=cost[SK_THUND_ME]){
-				CommandSet comTh = doThunderCommand();
-				if(comTh!=null&&comTh.point>com.point) com = comTh;
-			}
 		}
 		p[0] = com.com[0];
 		p[1] = com.com[1];
@@ -499,9 +501,9 @@ public class Main {
 			for(int j=0; j<2; j++){
 				int pid = playOrder[j];
 				tmp[pid] = searchItemSimple(pid, true, modeEscape[pid]);
-				if(tmp[pid]==null && !modeEscape[pid]){
+				if(tmp[pid]==null){
 					reset(pid);
-					tmp[pid] = searchItemSimple(pid, true, true);
+					tmp[pid] = searchItemSimple(pid, true, !modeEscape[pid]);
 					if(tmp[pid] != null) modeEscape[pid] = true;
 				}
 			}
@@ -651,19 +653,6 @@ public class Main {
 //			for(int j=0; j<W; j++){
 //				if(sdist[i][j]>best){
 //					best = sdist[i][]
-//				}
-//			}
-//		}
-		
-//		int[] res = new int[5];
-//		for(int i=0; i<5; i++){
-//			res[i] = -1;
-//			out:for(int y=choiceCenterY[i]-1; y<=choiceCenterY[i]+1; y++){
-//				for(int x=choiceCenterX[i]-1; x<=choiceCenterX[i]+1; x++){
-//					if(!isStone(y, x, map)){
-//						res[i] = y*W+x;
-//						break out;
-//					}
 //				}
 //			}
 //		}
@@ -1013,6 +1002,41 @@ public class Main {
 		}
 	}
 	
+	void bfsItem(int[] dist, BitSet map, BitSet dogMap){
+//		Arrays.fill(dist, inf);
+		int qi = 0, qe = 0;
+		for(int i=0; i<H*W; i++){
+			if(dist[i]!=0){
+				dist[i] = inf;
+				continue;
+			}
+			final int y = i/W;
+			final int x = i%W;
+			if(map.get(i)){
+				continue;
+			}
+			qy[qe] = y;
+			qx[qe] = x;
+			qe++;
+		}
+		while (qi < qe) {
+			int y = qy[qi], x = qx[qi];
+			++qi;
+			for (int i = 0; i < 4; ++i) {
+				int ny = y+dy[i];
+				int nx = x+dx[i];
+				if (!isWall(ny, nx, basemap) && !map.get(ny*W+nx)// && !dogMap.get(ny*W+nx)
+						&& dist[ny*W+nx] == inf) {
+					dist[ny*W+nx] = dist[y*W+x] + 1;
+					qy[qe] = ny;
+					qx[qe] = nx;
+					++qe;
+				}else if(map.get(ny*W+nx) && dist[ny*W+nx]==inf)
+					dist[ny*W+nx] = dist[y*W+x] + 1;
+			}
+		}
+	}
+	
 	void bfsPos(int[][] dist, int[] list, int n){
 		for(int i=0; i<H; i++)
 			Arrays.fill(dist[i], inf);
@@ -1039,6 +1063,41 @@ public class Main {
 				}
 			}
 		}
+	}
+	
+	int getFarPos(int[][] dist, int[] list, int n, BitSet map){
+		for(int i=0; i<H; i++)
+			Arrays.fill(dist[i], inf);
+		int qi = 0, qe = 0;
+		for(int i=0; i<n; i++){
+			final int y = list[i]/W;
+			final int x = list[i]%W;
+			qy[i] = y;
+			qx[i] = x;
+			dist[y][x] = 0;
+			qe++;
+		}
+		int farPos = 0;
+		int farDist = -1;
+		while (qi < qe) {
+			int y = qy[qi], x = qx[qi];
+			++qi;
+			for (int i = 0; i < 4; ++i) {
+				int ny = y+dy[i];
+				int nx = x+dx[i];
+				if (!isWall(ny, nx, basemap) && !map.get(ny*W+nx) && dist[ny][nx] == inf) {
+					dist[ny][nx] = dist[y][x] + 1;
+					qy[qe] = ny;
+					qx[qe] = nx;
+					if(farDist<dist[ny][nx]){
+						farDist = dist[ny][nx];
+						farPos = ny*W+nx;
+					}
+					++qe;
+				}
+			}
+		}
+		return farPos;
 	}
 	
 	int[][] sdist = new int[H][W];
@@ -1078,6 +1137,38 @@ public class Main {
 		}
 		if(eSkillUse[SK_STONE_EN]==0) setVirtualStone();
 		return dogMap;
+	}
+	
+	// dogMapはdogListと同期がとれてる前提
+	// dogMapとdogListを更新する
+	// bfsPosをあらかじめ呼び出しておくこと
+	void simulateDogs(BitSet map, int[] dogList, BitSet dogMap){
+//		bfsPos(sdist, pos, pos.length);
+		qu.clear();
+		for(int i=0; i<dogList.length; i++){
+			final int y = dogList[i]/W;
+			final int x = dogList[i]%W;
+			qu.add((sdist[y][x]<<10)|i);
+		}
+		while(!qu.isEmpty()){
+			final int idx = qu.poll()&msd;
+			final int y = dogList[idx]/W;
+			final int x = dogList[idx]%W;
+			for(int i=0; i<4; i++){
+				final int ny = y+dy[i];
+				final int nx = x+dx[i];
+				final int np = ny*W+nx;
+				if(isWall(ny, nx, basemap)
+						|| map.get(np)
+						|| dogMap.get(np)
+						|| sdist[ny][nx]>=sdist[y][x])
+					continue;
+				dogMap.clear(y*W+x);
+				dogMap.set(np);
+				dogList[idx] = np;
+				break;
+			}
+		}
 	}
 	
 	Command searchItemSimple(int pid, boolean copy, boolean esc){
@@ -1212,10 +1303,11 @@ public class Main {
 				if(dist[ny][nx]==inf && !isWall(ny, nx, map)
 						// 岩がないか、押せる岩
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
-								&& ((dist[y][x]+1)>dep+1 && (!isDogInMap(nny, nnx, basemap)||getAroundDogs(nny, nnx, dogDist)<3)
+								&& ((dist[y][x]+1)>dep+1 && (dogs<30||!isDogInMap(nny, nnx, basemap)||getAroundDogs(nny, nnx, dogDist)<=3)
 										|| !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
 						&& (dist[y][x]>dep+1
 								|| (dist[y][x]/2<oldDogDist[ny][nx])
+								|| dep==2&&dist[y][x]==0
 								|| copy&&esc&&(dist[y][x]+1!=dep+1||oldDogDist[ny][nx]>1)
 								|| esc&&oldDogDist[ny][nx]>1)){
 					dist[ny][nx] = dist[y][x]+1;
@@ -1241,7 +1333,7 @@ public class Main {
 						// 石が置いてないか，動かせる
 						&& (!get(ny, nx, smap) || !get(nny, nnx, smap) && !isWall(nny, nnx, map)
 								// 距離2以上か，人や犬が石の奥にいない
-								&& ((dist[y][x]+1)>dep+1 && (!isDogInMap(nny, nnx, basemap)||getAroundDogs(nny, nnx, dogDist)<3)
+								&& ((dist[y][x]+1)>dep+1 && (dogs<30||!isDogInMap(nny, nnx, basemap)||getAroundDogs(nny, nnx, dogDist)<=3)
 										|| !isStone(nny, nnx, map)/*注意*/ && !isNinja(nny, nnx, map) && !isDogInMap(nny, nnx, basemap)))
 						
 						&& (dist[y][x]>dep+1 // 目的地が今回たどり着けない
@@ -1325,7 +1417,7 @@ public class Main {
 				removeFromItemDist(ay, ax, copy);
 			}
 			res.add(dir[i]);
-			res.setPoint((target[pid]!=-1?50-dist[ay][ax]:0)+getItem*70-lastDog*3-getAroundDogs(ay, ax, dogDist)*10);
+			res.setPoint((target[pid]!=-1?50-dist[ay][ax]:0)+getItem*70-lastDog*3-getAroundDogs(ay, ax, oldDogDist)*10);
 		}
 
 		if(!copy && nextToDog(res.apply(py, px)) || copy && isDog(res.apply(py, px))) return null;
@@ -1450,6 +1542,138 @@ public class Main {
 		BitSet bs = new BitSet(map.length);
 		for(int i=0; i<map.length; i++) if((map[i]&mask)>0) bs.set(i);
 		return bs;
+	}
+	
+	class Pos implements Comparable<Pos>{
+		int[] p;
+		int pow;
+		BitSet stone;
+		int[] dog;
+		int[] item;
+		int point;
+		int hash;
+		int command;
+		Pos(int[] p, int pow, int[] dog, BitSet stone, int[] item, int point){
+			this.p = p;
+			this.pow = pow;
+			this.point = point;
+			this.dog = dog;
+			this.stone = stone;
+		}
+		@Override
+		public int compareTo(Pos p) {
+			if(p.point != point) return p.point-point;
+			return hash-p.hash;
+		}
+	}
+	TreeSet<Pos> bq = new TreeSet<>();
+	final int SEARCH_DEP = 10;
+	final int BEAM_WID = 10;
+	Pos[] tmpArray = new Pos[BEAM_WID];
+	CommandSet beamSearch(int[] pos, int[] map, int[][] itemDist){
+		int[] itemDistLine = new int[H*W];
+		for(int i=0; i<H; i++) for(int j=0; j<W; j++) itemDistLine[i*W+j] = itemDist[i][j];
+		bq.add(new Pos(pos, pow, dog.clone(), mapToBS(map, mss), itemDistLine, pow*10-distSum(itemDistLine, pos)));
+		int[][] d = new int[2][2];
+//		int[] d2 = new int[2];
+		for(int i=0; i<SEARCH_DEP; i++){
+			int sz = 0;
+			while(!bq.isEmpty()) tmpArray[sz++] = bq.pollFirst();
+			for(int j=0; j<sz; j++){
+				Pos p = tmpArray[j];
+				for(d[0][0]=0; d[0][0]<5; d[0][0]++){
+					for(d[0][1]=0; d[0][1]<5; d[0][1]++){
+						for(d[1][0]=0; d[1][0]<5; d[1][0]++){
+							for(d[1][1]=0; d[1][1]<5; d[1][1]++){
+								for(int c=0; c<2; c++){
+									Pos np = simulate(p, d, c==1);
+									if(np != null){
+										if(i==0){
+											np.command |= d[1][1]<<9|d[1][0]<<6|d[0][1]<<3|d[0][0];
+											if(c==1) np.command |= 1<<13;
+										}
+										// 先のコマンドが下位，ninja[0]のコマンドが下位
+										bq.add(np);
+										if(bq.size()>BEAM_WID) bq.pollLast();
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		return null;
+	}
+	int[] y = new int[2];
+	int[] x = new int[2];
+	Pos simulate(Pos p, int[][] d, boolean copy){
+		for(int i=0; i<2; i++){
+			y[i] = p.p[i]/W;
+			x[i] = p.p[i]%W;
+		}
+		int pow = p.pow;
+		if(copy){
+			pow -= cost[SK_COPY_ME];
+			if(pow<0) return null;
+		}
+		BitSet map = (BitSet)p.stone.clone();
+		BitSet dogMap = new BitSet(H*W);
+		int getItem = 0;
+		for(int i=0; i<p.dog.length; i++) dogMap.set(p.dog[i]);
+		for(int pid=0; pid<2; pid++){
+			for(int i=0; i<2; i++){
+				y[pid] += dy[d[pid][i]];
+				x[pid] += dx[d[pid][i]];
+				final int pos = y[pid]*W+x[pid];
+				// 壁か犬特攻なら没
+				if(isWall(y[pid], x[pid], basemap) || dogMap.get(pos)) return null;
+				// 正面が石のとき
+				if(map.get(pos)){
+					final int ny = y[pid]+dy[d[pid][i]];
+					final int nx = x[pid]+dx[d[pid][i]];
+					// 押せるかチェック
+					if(isWall(ny, nx, basemap)				// 壁か
+							|| map.get(ny*W+nx)				// 石か
+							|| y[pid^1]==ny&&x[pid^1]==nx	// 味方か
+							|| dogMap.get(ny*W+nx))			// 犬か
+						return null;
+					// 動かす
+					map.clear(pos);
+					map.set(ny*W+nx);
+				}
+				if(p.item[pos]==0){
+					getItem++;
+					p.item[pos] = -1;
+				}
+			}
+			for(int i=0; i<4; i++){
+				if(dogMap.get((y[pid]+dy[i])*W+x[pid]+dx[i])) return null;
+			}
+		}
+		int fp = getFarPos(sdist, p.p, 2, map);
+		int[] dog = p.dog.clone();
+		if(copy){
+			getFarPos(sdist, new int[]{fp}, 1, map);
+			simulateDogs(map, dog, dogMap);
+		}else{
+			simulateDogs(map, dog, dogMap);
+		}
+		// pointをどうするか．．．
+		if(getItem>0){
+			// itemDistの更新
+			int[] newItemDist = p.item.clone();
+			bfsItem(newItemDist, map, dogMap);
+			int[] newpos = {y[0]*W+x[0], y[1]*W+x[1]};
+			return new Pos(newpos, pow+2*getItem, dog, map, newItemDist, pow*10+getItem*5-distSum(newItemDist, newpos));
+		}else{
+			int[] newpos = {y[0]*W+x[0], y[1]*W+x[1]};
+			return new Pos(newpos, pow, dog, map, p.item, pow*10-distSum(p.item, newpos));
+		}
+	}
+	
+	int distSum(int[] dist, int[] pos){
+		return dist[pos[0]]+dist[pos[1]];
 	}
 }
 
