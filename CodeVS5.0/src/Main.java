@@ -389,7 +389,7 @@ public class Main {
 				if(comTh!=null&&comTh.point>com.point) com = comTh;
 			}
 //		}
-		if(com.point==-inf || cost[SK_RUN]>2){
+		if(com.point<=-inf || cost[SK_RUN]>2){
 			if(pow>=cost[SK_COPY_ME]
 					&& rand.nextInt(1001)<=1000/(eSkillUse[SK_COPY_EN]+1)
 					&& (vStone==-1||!virtualStone)){
@@ -867,7 +867,7 @@ public class Main {
 				setStone(ny, nx, map);
 			}
 		}
-		if(last && cost[SK_ATTACK]<=10 && cost[SK_ATTACK]<=pow && dogCount>4){
+		if(last && cost[SK_ATTACK]<=10 && cost[SK_ATTACK]<=pow && dogCount>3){
 			setSkill = "7 "+pid;
 			for(int i=0; i<8; i++){
 				removeDogFromTable(y+dy8[i], x+dx8[i], map);
@@ -1602,7 +1602,7 @@ public class Main {
 	final int POW_MLT = 10;
 	final int ITEM_MLT = 10;
 	final int DOG_MLT = 6;
-	final int COM_SH = 20;
+	final int COM_SH = 18;
 	Pos[] tmpArray = new Pos[BEAM_WID];
 	final int[] act = {-1, SK_COPY_ME, SK_THUND_ME, SK_RUN};
 	CommandSet beamSearch(int[] pos, int[] map, int[][] itemDist){
@@ -1615,7 +1615,7 @@ public class Main {
 		int[][] d = new int[2][3];
 //		int[] d2 = new int[2];
 //		Pos best = null;
-		int cmax = 4;
+		int cmax = 2;
 		for(int i=0; i<SEARCH_DEP; i++){
 			int sz = 0;
 			while(!bq.isEmpty()) tmpArray[sz++] = bq.pollFirst();
@@ -1641,21 +1641,21 @@ public class Main {
 												if(bq.size()>BEAM_WID-i*2) bq.pollLast();
 											}
 										}
-									}else if(act[c]==SK_RUN){
-										for(d[0][2]=0; d[0][2]<4; d[0][2]++){
-											for(d[1][2]=0; d[1][2]<4; d[1][2]++){
-												Pos np = simulate(p, d, act[c]);
-												if(np != null){
-													if(i==0){
-														np.command |= d[1][2]<<15|d[0][2]<<12|d[1][1]<<9|d[1][0]<<6|d[0][1]<<3|d[0][0];
-														np.command |= act[c]<<COM_SH;
-													}
-													// 先のコマンドが下位，ninja[0]のコマンドが下位
-													bq.add(np);
-													if(bq.size()>BEAM_WID-i*2) bq.pollLast();
-												}
-											}
-										}
+//									}else if(act[c]==SK_RUN){
+//										for(d[0][2]=0; d[0][2]<4; d[0][2]++){
+//											for(d[1][2]=0; d[1][2]<4; d[1][2]++){
+//												Pos np = simulate(p, d, act[c]);
+//												if(np != null){
+//													if(i==0){
+//														np.command |= d[1][2]<<15|d[0][2]<<12|d[1][1]<<9|d[1][0]<<6|d[0][1]<<3|d[0][0];
+//														np.command |= act[c]<<COM_SH;
+//													}
+//													// 先のコマンドが下位，ninja[0]のコマンドが下位
+//													bq.add(np);
+//													if(bq.size()>BEAM_WID-i*2) bq.pollLast();
+//												}
+//											}
+//										}
 									}else{
 										Pos np = simulate(p, d, act[c]);
 										if(np != null){
@@ -1685,7 +1685,7 @@ public class Main {
 		com[1] = new Command((command>>6)&7, (command>>9)&7);
 		String skill = null;
 		int skillCost = 0;
-		int sk = command>>COM_SH;
+		int sk = command>>>COM_SH;
 		if(sk==SK_COPY_ME){
 			final int fp = getFarPos(sdist, pos, 2, mapToBS(map, mss));
 			final int y = fp/W;
@@ -1703,11 +1703,11 @@ public class Main {
 //			final int x = pos[sk-1]%W;
 //			skill = SK_COPY_ME+" "+y+" "+x;
 //			skillCost = cost[SK_COPY_ME];
-		}else if(sk==SK_RUN){
-			com[0].add((command>>12)&7);
-			com[1].add((command>>15)&7);
-			skill = SK_RUN+"";
-			skillCost = cost[SK_RUN];
+//		}else if(sk==SK_RUN){
+//			com[0].add((command>>12)&7);
+//			com[1].add((command>>15)&7);
+//			skill = SK_RUN+"";
+//			skillCost = cost[SK_RUN];
 		}
 		return new CommandSet(com, skill, skillCost);
 	}
