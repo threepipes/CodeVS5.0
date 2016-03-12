@@ -515,6 +515,7 @@ public class Main {
 					reset(pid);
 					tmp[pid] = searchItemSimple(pid, true, !modeEscape[pid]);
 					if(tmp[pid] != null) modeEscape[pid] = true;
+					else tmp[pid] = walkEachSimple(playOrder[j], true, false);
 				}
 			}
 			if(tmp[0]==null || tmp[1]==null
@@ -538,7 +539,7 @@ public class Main {
 				initCopying(y, x);
 				Command[] tmp = new Command[2];
 				for(int j=0; j<2; j++){
-					walkEachSimple(playOrder[j], true, false);
+					tmp[j] = walkEachSimple(playOrder[j], true, false);
 					update(playOrder[j]);
 				}
 				if(tmp[0]==null || tmp[1]==null
