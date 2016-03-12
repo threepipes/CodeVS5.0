@@ -360,7 +360,7 @@ public class Main {
 		if(true){
 			order(dog, true);
 			setSkill = useFastSkill();
-			CommandSet com = beamSearch(pos, map, itemDist);
+			CommandSet com = beamSearch(pos, map, itemDist, 4);
 			if(com != null){
 				if(com.skill == null) com.skill = setSkill;
 				return com.toString();
@@ -1606,7 +1606,7 @@ public class Main {
 	final int COM_SH = 18;
 	Pos[] tmpArray = new Pos[BEAM_WID];
 	final int[] act = {-1, SK_COPY_ME, SK_THUND_ME, SK_RUN};
-	CommandSet beamSearch(int[] pos, int[] map, int[][] itemDist){
+	CommandSet beamSearch(int[] pos, int[] map, int[][] itemDist, int cmax){
 		int[] thunder = getThunderChoice();
 		System.err.println("beam search");
 		int[] itemDistLine = new int[H*W];
@@ -1616,7 +1616,6 @@ public class Main {
 		int[][] d = new int[2][3];
 //		int[] d2 = new int[2];
 //		Pos best = null;
-		int cmax = 2;
 		for(int i=0; i<SEARCH_DEP; i++){
 			int sz = 0;
 			while(!bq.isEmpty()) tmpArray[sz++] = bq.pollFirst();
@@ -1630,7 +1629,7 @@ public class Main {
 								for(int c=0; c<cmax; c++){
 									if(act[c]==SK_THUND_ME){
 										for(int t=0; t<thunder.length; t++){
-											final int com = thunder[t]<<4|act[c];
+											final int com = thunder[t]<<4|(act[c]+1);
 											Pos np = simulate(p, d, com);
 											if(np != null){
 												if(i==0){
@@ -1642,27 +1641,27 @@ public class Main {
 												if(bq.size()>BEAM_WID-i*2) bq.pollLast();
 											}
 										}
-//									}else if(act[c]==SK_RUN){
-//										for(d[0][2]=0; d[0][2]<4; d[0][2]++){
-//											for(d[1][2]=0; d[1][2]<4; d[1][2]++){
-//												Pos np = simulate(p, d, act[c]);
-//												if(np != null){
-//													if(i==0){
-//														np.command |= d[1][2]<<15|d[0][2]<<12|d[1][1]<<9|d[1][0]<<6|d[0][1]<<3|d[0][0];
-//														np.command |= act[c]<<COM_SH;
-//													}
-//													// 先のコマンドが下位，ninja[0]のコマンドが下位
-//													bq.add(np);
-//													if(bq.size()>BEAM_WID-i*2) bq.pollLast();
-//												}
-//											}
-//										}
+									}else if(act[c]==SK_RUN){
+										for(d[0][2]=0; d[0][2]<4; d[0][2]++){
+											for(d[1][2]=0; d[1][2]<4; d[1][2]++){
+												Pos np = simulate(p, d, act[c]);
+												if(np != null){
+													if(i==0){
+														np.command |= d[1][2]<<15|d[0][2]<<12|d[1][1]<<9|d[1][0]<<6|d[0][1]<<3|d[0][0];
+														np.command |= (act[c]+1)<<COM_SH;
+													}
+													// 先のコマンドが下位，ninja[0]のコマンドが下位
+													bq.add(np);
+													if(bq.size()>BEAM_WID-i*2) bq.pollLast();
+												}
+											}
+										}
 									}else{
 										Pos np = simulate(p, d, act[c]);
 										if(np != null){
 											if(i==0){
 												np.command |= d[1][1]<<9|d[1][0]<<6|d[0][1]<<3|d[0][0];
-												if(c>0) np.command |= act[c]<<COM_SH;
+												if(c>0) np.command |= (act[c]+1)<<COM_SH;
 											}
 											// 先のコマンドが下位，ninja[0]のコマンドが下位
 											bq.add(np);
@@ -1686,7 +1685,7 @@ public class Main {
 		com[1] = new Command((command>>6)&7, (command>>9)&7);
 		String skill = null;
 		int skillCost = 0;
-		int sk = command>>>COM_SH;
+		int sk = (command>>>COM_SH)-1;
 		if(sk==SK_COPY_ME){
 			final int fp = getFarPos(sdist, pos, 2, mapToBS(map, mss));
 			final int y = fp/W;
@@ -1704,11 +1703,11 @@ public class Main {
 //			final int x = pos[sk-1]%W;
 //			skill = SK_COPY_ME+" "+y+" "+x;
 //			skillCost = cost[SK_COPY_ME];
-//		}else if(sk==SK_RUN){
-//			com[0].add((command>>12)&7);
-//			com[1].add((command>>15)&7);
-//			skill = SK_RUN+"";
-//			skillCost = cost[SK_RUN];
+		}else if(sk==SK_RUN){
+			com[0].add((command>>12)&7);
+			com[1].add((command>>15)&7);
+			skill = SK_RUN+"";
+			skillCost = cost[SK_RUN];
 		}
 		return new CommandSet(com, skill, skillCost);
 	}
@@ -1728,6 +1727,9 @@ public class Main {
 			if(pow<0) return null;
 		}
 		BitSet map = (BitSet)p.stone.clone();
+		if((sk&15)==SK_THUND_ME){
+			map.clear(sk>>4);
+		}
 		BitSet dogMap = new BitSet(H*W);
 		int getItem = p.getItem;
 		int[] newItem = p.item.clone();
@@ -1772,9 +1774,6 @@ public class Main {
 //			getFarPos(sdist, new int[]{p.p[sk-2]}, 1, map);
 //			simulateDogs(map, dog, dogMap);
 		}else{
-			if((sk&15)==SK_THUND_ME){
-				map.clear(sk>>4);
-			}
 			simulateDogs(map, dog, dogMap);
 		}
 		if(getItem>0){
@@ -1792,6 +1791,7 @@ public class Main {
 		}
 //		if(stNum+dogNum==4) return null;
 		int[] newpos = {y[0]*W+x[0], y[1]*W+x[1]};
+		if(dogMap.get(newpos[0]) || dogMap.get(newpos[1])) return null;
 		return new Pos(newpos, pow, dog, map, newItem, pow*POW_MLT-distSum(newItem, newpos)-dogNum*DOG_MLT, getItem, p.command);
 	}
 	
