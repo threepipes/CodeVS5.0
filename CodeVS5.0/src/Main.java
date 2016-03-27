@@ -359,12 +359,18 @@ public class Main {
 	String createCommand(){
 		if(true){
 			order(dog, true);
-			setSkill = useFastSkill();
-			CommandSet com = beamSearch(pos, map, itemDist, 4);
+//			setSkill = useFastSkill();
+			CommandSet com = beamSearch(pos, map, itemDist, 1);
 			if(com != null){
 				if(com.skill == null) com.skill = setSkill;
 				return com.toString();
 			}
+//			com = beamSearch(pos, map, itemDist, 4);
+//			if(com != null){
+//				if(com.skill == null) com.skill = setSkill;
+//				return com.toString();
+//			}
+			return "2\n\n\n";
 		}
 		order(dog, false);
 //		setSkill = useFastSkill();
@@ -377,7 +383,8 @@ public class Main {
 		Command[] p = new Command[2];
 		for(int i=0; i<2; i++)
 			p[playOrder[i]] = searchItemSimple(playOrder[i], false, modeEscape[playOrder[i]]);
-		CommandSet com = new CommandSet(p, setSkill, setSkill==null?0:1);
+		CommandSet
+		com = new CommandSet(p, setSkill, setSkill==null?0:1);
 //		if(com.point==0){
 			if(pow>=cost[SK_RUN] /*&& cost[SK_RUN]<cost[SK_COPY_ME]*/){
 				//			p = doRunCommand();
@@ -406,7 +413,7 @@ public class Main {
 		String res = "";
 		if(p[0]==null || p[1]==null){
 //			modeEscape = true;
-			for(int i=0; i<2; i++) if(p[i] == null) modeEscape[i] = true;
+//			for(int i=0; i<2; i++) if(p[i] == null) modeEscape[i] = true;
 			resetBase();
 			order(dog, false);
 			for(int i=0; i<2; i++){
@@ -510,10 +517,10 @@ public class Main {
 			Command[] tmp = new Command[2];
 			for(int j=0; j<2; j++){
 				int pid = playOrder[j];
-				tmp[pid] = searchItemSimple(pid, true, modeEscape[pid]);
+				tmp[pid] = searchItemSimple(pid, true, false);//modeEscape[pid]);
 				if(tmp[pid]==null){
 					reset(pid);
-					tmp[pid] = searchItemSimple(pid, true, !modeEscape[pid]);
+					tmp[pid] = searchItemSimple(pid, true, true);//!modeEscape[pid]);
 					if(tmp[pid] != null) modeEscape[pid] = true;
 					else tmp[pid] = walkEachSimple(playOrder[j], true, false);
 				}
@@ -1598,13 +1605,15 @@ public class Main {
 		}
 	}
 	TreeSet<Pos> bq = new TreeSet<>();
+	TreeSet<Pos> rq = new TreeSet<>();
 	final int SEARCH_DEP = 10;
 	final int BEAM_WID = 40;
+	final int SUB_BEAM_WID = 20;
 	final int POW_MLT = 10;
 	final int ITEM_MLT = 10;
 	final int DOG_MLT = 6;
 	final int COM_SH = 18;
-	Pos[] tmpArray = new Pos[BEAM_WID];
+	Pos[] tmpArray = new Pos[BEAM_WID+SUB_BEAM_WID];
 	final int[] act = {-1, SK_COPY_ME, SK_THUND_ME, SK_RUN};
 	CommandSet beamSearch(int[] pos, int[] map, int[][] itemDist, int cmax){
 		int[] thunder = getThunderChoice();
@@ -1612,14 +1621,16 @@ public class Main {
 		int[] itemDistLine = new int[H*W];
 		for(int i=0; i<H; i++) for(int j=0; j<W; j++) itemDistLine[i*W+j] = itemDist[i][j];
 		bq.clear();
+		rq.clear();
 		bq.add(new Pos(pos, pow, dog.clone(), mapToBS(map, mss), itemDistLine, pow*POW_MLT-distSum(itemDistLine, pos), 0, 0));
 		int[][] d = new int[2][3];
 //		int[] d2 = new int[2];
-//		Pos best = null;
+		Pos best = null;
 		for(int i=0; i<SEARCH_DEP; i++){
 			int sz = 0;
 			while(!bq.isEmpty()) tmpArray[sz++] = bq.pollFirst();
-//			if(i>3) best = tmpArray[0];
+			while(!rq.isEmpty()) tmpArray[sz++] = rq.pollFirst();
+			if(i>3) best = tmpArray[0];
 			for(int j=0; j<sz; j++){
 				Pos p = tmpArray[j];
 				for(d[0][0]=0; d[0][0]<5; d[0][0]++){
@@ -1637,8 +1648,14 @@ public class Main {
 													np.command |= com<<COM_SH;
 												}
 												// 先のコマンドが下位，ninja[0]のコマンドが下位
-												bq.add(np);
-												if(bq.size()>BEAM_WID-i*2) bq.pollLast();
+												if(bq.isEmpty() || bq.last().point<np.point){
+													bq.add(np);
+													if(bq.size()>BEAM_WID-i) bq.pollLast();
+												}else if(rand.nextInt(1000)<=100){
+													np.point = rand.nextInt(100);
+													rq.add(np);
+													if(rq.size()>SUB_BEAM_WID) rq.pollLast();
+												}
 											}
 										}
 									}else if(act[c]==SK_RUN){
@@ -1651,8 +1668,14 @@ public class Main {
 														np.command |= (act[c]+1)<<COM_SH;
 													}
 													// 先のコマンドが下位，ninja[0]のコマンドが下位
-													bq.add(np);
-													if(bq.size()>BEAM_WID-i*2) bq.pollLast();
+													if(bq.isEmpty() || bq.last().point<np.point){
+														bq.add(np);
+														if(bq.size()>BEAM_WID-i*2) bq.pollLast();
+													}else if(rand.nextInt(1000)<=100){
+														np.point = rand.nextInt(100);
+														rq.add(np);
+														if(rq.size()>SUB_BEAM_WID-i) rq.pollLast();
+													}
 												}
 											}
 										}
@@ -1664,8 +1687,14 @@ public class Main {
 												if(c>0) np.command |= (act[c]+1)<<COM_SH;
 											}
 											// 先のコマンドが下位，ninja[0]のコマンドが下位
-											bq.add(np);
-											if(bq.size()>BEAM_WID-i*2) bq.pollLast();
+											if(bq.isEmpty() || bq.last().point<np.point){
+												bq.add(np);
+												if(bq.size()>BEAM_WID-i*2) bq.pollLast();
+											}else if(rand.nextInt(1000)<=100){
+												np.point = rand.nextInt(100);
+												rq.add(np);
+												if(rq.size()>SUB_BEAM_WID-i) rq.pollLast();
+											}
 										}
 									}
 								}
@@ -1676,9 +1705,9 @@ public class Main {
 			}
 			if(i==0) cmax = 2;
 		}
-		if(bq.isEmpty()) return null;
+		if(bq.size()==0) return null;
 		int command = bq.pollFirst().command;
-//		if(bq.size()==0 && best==null) return null;
+//		else command = bq.pollFirst().command;
 //		int command = bq.isEmpty()?best.command:bq.pollFirst().command;
 		Command[] com = new Command[2];
 		com[0] = new Command(command&7, (command>>3)&7);
@@ -1782,14 +1811,14 @@ public class Main {
 			pow += 2*getItem;
 		}
 		int dogNum = 0;
-//		int stNum = 0;
+		int stNum = 0;
 		for(int i=0; i<2; i++){
 			for(int j=0; j<4; j++){
 				if(dogMap.get((y[i]+dy[j])*W+x[i]+dx[j])) dogNum++;
-//				else if(map.get(((y[i]+dy[j])*W+x[i]+dx[j]))) stNum++;
+				else if(map.get(((y[i]+dy[j])*W+x[i]+dx[j]))) stNum++;
 			}
 		}
-//		if(stNum+dogNum==4) return null;
+		if(stNum+dogNum==4) return null;
 		int[] newpos = {y[0]*W+x[0], y[1]*W+x[1]};
 		if(dogMap.get(newpos[0]) || dogMap.get(newpos[1])) return null;
 		return new Pos(newpos, pow, dog, map, newItem, pow*POW_MLT-distSum(newItem, newpos)-dogNum*DOG_MLT, getItem, p.command);
